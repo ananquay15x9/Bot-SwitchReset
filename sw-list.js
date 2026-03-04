@@ -1,0 +1,74 @@
+const { chromium } = require('playwright');
+const fs = require('fs');
+
+(async () => {
+  const browser = await chromium.launch({ headless: false });
+  const page = await browser.newPage();
+
+  // let the bot login
+  await page.goto('https://portal.isitemediagroup.com/users/sign_in');
+  await page.getByRole('textbox', { name: 'Email' }).fill('tle@isitemediagroup.com');
+  await page.getByRole('textbox', { name: 'Password' }).fill('Ahihi123456?');
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await page.waitForURL('**/portal');
+
+  // venues with down switches
+  const venues = await page.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll('#dashboard-admin-issues-content table tr')).slice(1);
+    return rows.map(row => {
+      const cells = row.querySelectorAll('td');
+      return {
+        name: cells[0]?.innerText.trim(),
+        url: cells[0]?.querySelector('a')?.href,
+        disconnected: parseInt(cells[2]?.innerText) || 0
+      };
+    }).filter(v =>
+        v.disconnected > 0 &&
+        v.name !== 'iSite Office' &&
+        v.name !== 'Mizzou: Faurot Field'
+    ); // skip iSite Office and Mizzou Faurot Field
+  });
+
+  const finalOutput = [];
+
+  // pulling all switches data
+  for (const venue of venues) {
+    console.log(`Pulling ${venue.name}...`);
+    await page.goto(venue.url);
+    await page.waitForSelector('#sort_table tbody tr');
+
+    const switches = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('#sort_table tbody tr'));
+      
+      return rows.map(row => {
+        const cells = row.querySelectorAll('td');
+
+        
+        const piSerial = cells[7]?.innerText.trim() || "";
+        const location = cells[1]?.innerText.trim() || "";
+        const portRaw = cells[3]?.innerText.trim() || "";
+        const group = cells[5]?.innerText.trim() || "";
+
+        const portMatch = portRaw.match(/\d+/);
+        
+        return {
+          serial: piSerial,
+          port: portMatch ? portMatch[0] : "N/A",
+          location: location,
+          group: group
+        };
+      }).filter(s => s.serial && s.serial.length > 5); 
+    });
+
+    finalOutput.push({
+      venue: venue.name,
+      switches: switches
+    });
+  }
+
+  // write to json
+  fs.writeFileSync('switch-list.json', JSON.stringify(finalOutput, null, 2));
+  console.log("Please check 'switch-list.json' 🥲" );
+
+  await browser.close();
+})();
