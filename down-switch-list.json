@@ -1,0 +1,13 @@
+[
+  {
+    "venue": "Grand Casino Arena",
+    "switches": [
+      {
+        "serial": "000000002fb06165",
+        "port": "12",
+        "location": "106W 06",
+        "group": "106W"
+      }
+    ]
+  }
+]

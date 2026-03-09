@@ -67,8 +67,8 @@ const fs = require('fs');
   }
 
   // write to json
-  fs.writeFileSync('switch-list.json', JSON.stringify(finalOutput, null, 2));
-  console.log("Please check 'switch-list.json' 🥲" );
+  fs.writeFileSync('down-switch-list.json', JSON.stringify(finalOutput, null, 2));
+  console.log("Please check 'down-switch-list.json' 🥲" );
 
   await browser.close();
 })();

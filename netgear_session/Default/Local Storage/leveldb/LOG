@@ -1,17 +1,17 @@
-2026/03/05-17:06:58.053 e3f4 Reusing MANIFEST /home/anle/code/reset-switch-bot/netgear_session/Default/Local Storage/leveldb/MANIFEST-000001
-2026/03/05-17:06:58.055 e3f4 Recovering log #163
-2026/03/05-17:06:58.055 e3f4 Level-0 table #166: started
-2026/03/05-17:06:58.126 e3f4 Level-0 table #166: 86240 bytes OK
-2026/03/05-17:06:58.132 e3f4 Delete type=0 #163
-2026/03/05-17:07:03.283 e3f6 Level-0 table #169: started
-2026/03/05-17:07:03.433 e3f6 Level-0 table #169: 48890 bytes OK
-2026/03/05-17:07:03.437 e3f6 Delete type=0 #167
-2026/03/05-17:07:03.438 e3f6 Compacting 4@0 + 1@1 files
-2026/03/05-17:07:03.441 e3f6 Generated table #170@0: 62 keys, 65267 bytes
-2026/03/05-17:07:03.441 e3f6 Compacted 4@0 + 1@1 files => 65267 bytes
-2026/03/05-17:07:03.444 e3f6 compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/03/05-17:07:03.445 e3f6 Delete type=2 #159
-2026/03/05-17:07:03.445 e3f6 Delete type=2 #161
-2026/03/05-17:07:03.445 e3f6 Delete type=2 #164
-2026/03/05-17:07:03.445 e3f6 Delete type=2 #166
-2026/03/05-17:07:03.445 e3f6 Delete type=2 #169
+2026/03/09-16:31:16.229 307d7 Reusing MANIFEST /home/anle/code/reset-switch-bot/netgear_session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/03/09-16:31:16.232 307d7 Recovering log #350
+2026/03/09-16:31:16.233 307d7 Level-0 table #353: started
+2026/03/09-16:31:16.286 307d7 Level-0 table #353: 90512 bytes OK
+2026/03/09-16:31:16.290 307d7 Delete type=0 #350
+2026/03/09-16:31:16.291 307d9 Compacting 4@0 + 1@1 files
+2026/03/09-16:31:16.295 307d9 Generated table #355@0: 138 keys, 108744 bytes
+2026/03/09-16:31:16.295 307d9 Compacted 4@0 + 1@1 files => 108744 bytes
+2026/03/09-16:31:16.300 307d9 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/03/09-16:31:16.300 307d9 Delete type=2 #344
+2026/03/09-16:31:16.300 307d9 Delete type=2 #346
+2026/03/09-16:31:16.300 307d9 Delete type=2 #348
+2026/03/09-16:31:16.300 307d9 Delete type=2 #351
+2026/03/09-16:31:16.300 307d9 Delete type=2 #353
+2026/03/09-16:31:21.421 307d9 Level-0 table #357: started
+2026/03/09-16:31:21.457 307d9 Level-0 table #357: 54023 bytes OK
+2026/03/09-16:31:21.461 307d9 Delete type=0 #354

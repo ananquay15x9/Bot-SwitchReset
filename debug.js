@@ -11,6 +11,9 @@ const askTerminal = (query) => {
     }));
 };
 
+/**
+ * Fallback normalization if no mapping is found in CSV
+ */
 function normalizeGroupName(name) {
     if (!name) return "";
     let clean = name.trim();
@@ -41,6 +44,35 @@ const venueMap = {
 };
 
 (async () => {
+    //csv mapping
+    const serialToNetgear = {};
+    const venueGroupToNetgear = {};
+    try {
+        if (fs.existsSync('all-switch-list.csv')) {
+            const csvContent = fs.readFileSync('all-switch-list.csv', 'utf8');
+            const lines = csvContent.split('\n');
+            lines.slice(1).forEach(line => {
+                if (!line.trim()) return;
+                const parts = line.split(',');
+                if (parts.length >= 6) {
+                    const venue = parts[0].trim();
+                    const serial = parts[1].trim();
+                    // Netgear name is last in the CSV
+                    const group = parts[parts.length - 2].trim();
+                    const netgearName = parts[parts.length - 1].trim();
+
+                    if (serial && serial !== '0' && serial !== 'N/A') {
+                        serialToNetgear[serial] = netgearName;
+                    }
+                    venueGroupToNetgear[`${venue}|${group}`] = netgearName;
+                }
+            });
+            console.log("📊 CSV Mapping loaded successfully.");
+        }
+    } catch (e) {
+        console.log("⚠️ Could not load all-switch-list.csv mapping. Using fallbacks.");
+    }
+
     const userDataDir = './netgear_session';
     const context = await chromium.launchPersistentContext(userDataDir, {
         headless: false,
@@ -52,9 +84,9 @@ const venueMap = {
 
     console.log("🚀 Navigating to Netgear...");
     await page.goto('https://insight.netgear.com/#/landingPage');
-
     if (await page.isVisible('#loginNow')) await page.click('#loginNow');
 
+    // login and mfa
     try {
         const authState = await Promise.race([
             page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('code='), { timeout: 15000 }).then(() => 'LOGGED_IN'),
@@ -77,8 +109,8 @@ const venueMap = {
             await page.click('button:has-text("Continue")');
             await askTerminal("Enter code in browser, then press [ENTER] here...");
             await page.click('button:has-text("Continue")');
-            try { 
-                await page.click('button:has-text("Trust")', { timeout: 5000 }); 
+            try {
+                await page.click('button:has-text("Trust")', { timeout: 5000 });
                 await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 });
             } catch (e) {}
         }
@@ -86,79 +118,57 @@ const venueMap = {
         console.log("✅ Inside the Portal.");
     } catch (e) { console.log("⚠️ Auth bypass."); }
 
+    // start the loop
     for (const venueData of swList) {
         const netgearVenueName = venueMap[venueData.venue] || venueData.venue;
-        console.log(`\n🏢 Testing Venue: ${netgearVenueName}`);
+        console.log(`\n🏢 Venue: ${netgearVenueName}`);
 
         try {
-            // 1. Navigation
             await page.click('#headerLocName');
             await page.waitForSelector('.search-location-list', { timeout: 5000 });
             await page.locator('.location-title', { hasText: new RegExp(`^${netgearVenueName}$`, 'i') }).click();
 
-            // 2. CRITICAL WAIT: Wait for the Device Grid container to exist before clicking 'Devices'
-            console.log("⏳ Waiting for page to stabilize...");
             await page.waitForLoadState('networkidle');
-            
             await page.waitForSelector('a[href*="/devices/dash"]', { timeout: 15000 });
             await page.locator('a[href*="/devices/dash"]').click();
-            
 
             for (const sw of venueData.switches) {
-                const targetGroup = normalizeGroupName(sw.group);
-                console.log(`🔍 DEBUGGING SWITCH: ${targetGroup}`);
 
-                // --- STEP A: THE RESET ---
-                // If the URL shows we are in a summary, go back to the dash first
-                if (page.url().includes('/switch/summary')) {
-                    console.log("⬅️ Returning to Dashboard to find the next bathroom...");
+                const targetGroup = serialToNetgear[sw.serial] ||
+                                    venueGroupToNetgear[`${venueData.venue}|${sw.group}`] ||
+                                    normalizeGroupName(sw.group);
+
+                console.log(`🔍 DEBUGGING SWITCH: ${sw.location} -> ${targetGroup} (Serial: ${sw.serial})`);
+
+                // navigate to devices tab
+                if (!page.url().includes('/devices/dash')) {
+                    console.log("⬅️ Returning to Dashboard...");
                     await page.goto('https://insight.netgear.com/#/devices/dash');
-                    // Wait for the grid to reload so the search bar is actually there
                     await page.waitForSelector('.ag-root-wrapper', { timeout: 15000 });
-                    await page.waitForTimeout(1000); // Small buffer for AG Grid stability
+                    await page.waitForTimeout(2000); 
                 }
 
-                // --- STEP B: THE SEARCH ---
+                // search for the location
                 const searchBar = page.locator('div.m-b-10 input.agGridSearch').first();
                 await searchBar.waitFor({ state: 'visible', timeout: 10000 });
-                
-                // Clear the search bar (very important for multiple switches in one venue)
                 await searchBar.click({ clickCount: 3 });
+                await page.keyboard.press('Control+a');
                 await page.keyboard.press('Backspace');
-                
-                // Type the new bathroom location
                 await searchBar.fill(targetGroup);
-                await page.keyboard.press('Enter');
-                
-                // Wait for the grid to filter down to our target
-                await page.waitForTimeout(2000);
+                await page.waitForTimeout(2000); 
 
-                // --- STEP C: THE CLICK (Your verified code) ---
-                await page.evaluate((targetSwitchName) => {
-                    const gridEl = document.querySelector('.ag-root-wrapper');
-                    if (!gridEl) throw new Error("AG Grid not found");
+                // clicking
+                const escapedName = targetGroup.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const nameCell = page.locator(
+                    '.ag-pinned-left-cols-container .ag-cell[col-id="name"] p.breakWord'
+                ).filter({ hasText: new RegExp(`^${escapedName}$`) }).first();
+                await nameCell.waitFor({ state: 'visible', timeout: 10000 });
+                await nameCell.dblclick();
 
-                    const gridApi = gridEl.__agComponent?.gridOptions?.api;
+                // go to detail page
+                await page.waitForURL('**devices/switch/summary**', { timeout: 15000 });
+                console.log(`✅ On switch page for: ${targetGroup}`);
 
-                    if (gridApi) {
-                        gridApi.forEachNode((node) => {
-                            if (node.data && node.data.deviceName === targetSwitchName) {
-                                gridApi.ensureNodeVisible(node);
-                                node.setSelected(true);
-                                const cell = document.querySelector(`[row-id="${node.id}"] [col-id="deviceName"]`);
-                                cell?.click();
-                            }
-                        });
-                    } else {
-                        const cells = Array.from(document.querySelectorAll('.ag-cell'));
-                        const targetCell = cells.find(c => c.innerText.trim() === targetSwitchName);
-                        if (targetCell) {
-                            targetCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-                        }
-                    }
-                }, targetGroup);
-
-                // After this, it will loop back to STEP A for the next bathroom!
             }
         } catch (e) {
             console.log(`❌ Error: ${e.message}`);

@@ -3,7 +3,6 @@ const fs = require('fs');
 const readline = require('readline');
 require('dotenv').config();
 
-
 const askTerminal = (query) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     return new Promise(resolve => rl.question(query, ans => {
@@ -12,18 +11,15 @@ const askTerminal = (query) => {
     }));
 };
 
-// Reformat the group bathroom
 function normalizeGroupName(name) {
     if (!name) return "";
     let clean = name.trim();
     clean = clean.replace(/\s*Mens?$/i, 'M');
     clean = clean.replace(/\s*Womens?$/i, 'W');
-    //remove extra space too
     clean = clean.replace(/\s+/g, '');
     return clean.toUpperCase();
 }
 
-//1. venue name mapping
 const venueMap = {
     "Auburn - Neville Arena": "Auburn",
     "Baylor - Foster Pavilion": "Baylor",
@@ -45,6 +41,34 @@ const venueMap = {
 };
 
 (async () => {
+    // mapping
+    const serialToNetgear = {};
+    const venueGroupToNetgear = {};
+    try {
+        if (fs.existsSync('all-switch-list.csv')) {
+            const csvContent = fs.readFileSync('all-switch-list.csv', 'utf8');
+            const lines = csvContent.split('\n');
+            lines.slice(1).forEach(line => {
+                if (!line.trim()) return;
+                const parts = line.split(',');
+                if (parts.length >= 6) {
+                    const venue = parts[0].trim();
+                    const serial = parts[1].trim();
+                    const group = parts[parts.length - 2].trim();
+                    const netgearName = parts[parts.length - 1].trim();
+
+                    if (serial && serial !== '0' && serial !== 'N/A') {
+                        serialToNetgear[serial] = netgearName;
+                    }
+                    venueGroupToNetgear[`${venue}|${group}`] = netgearName;
+                }
+            });
+            console.log("📊 CSV Mapping loaded successfully.");
+        }
+    } catch (e) {
+        console.log("⚠️ Could not load all-switch-list.csv mapping. Using fallbacks.");
+    }
+
     const userDataDir = './netgear_session';
     const context = await chromium.launchPersistentContext(userDataDir, {
         headless: false,
@@ -52,160 +76,99 @@ const venueMap = {
     });
 
     const page = await context.newPage();
-    const swList = JSON.parse(fs.readFileSync('switch-list.json', 'utf8'));
+    const swList = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
 
-    console.log("🚀 Navigating to Netgear...");
+    console.log("🚀 Redirecting to Netgear...");
     await page.goto('https://insight.netgear.com/#/landingPage');
-
-
     if (await page.isVisible('#loginNow')) await page.click('#loginNow');
 
-    // 2. login field
+    // login and mfa
     try {
-        // check if we land on the Dashboard
         const authState = await Promise.race([
-            page.waitForFunction(() =>
-                window.location.href.includes('dashboard') ||
-                window.location.href.includes('code='),
-                { timeout: 120000 }
-            ).then(() => 'LOGGED_IN'),
-
-            //needs login
+            page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('code='), { timeout: 15000 }).then(() => 'LOGGED_IN'),
             page.waitForSelector('input[formcontrolname="email"]', { timeout: 10000 }).then(() => 'NEEDS_LOGIN'),
-
-            // needs phone selection
             page.waitForSelector('#try3', { timeout: 10000 }).then(() => 'NEEDS_MFA')
         ]);
 
-        if (authState === 'LOGGED_IN') {
-            console.log('✅ Session active. Skipping Login and MFA.')
-        } else {
-            // who are you
-            console.log("\n👤 MFA Setup Required:");
-            console.log("1) Ruben (SMS to *7166)");
-            console.log("2) Tu (SMS to *6646)");
-            const userChoice = await askTerminal("Who are you? (Type 1 or 2): ");
-
+        if (authState !== 'LOGGED_IN') {
+            console.log("\n👤 MFA Required:");
+            const userChoice = await askTerminal("Who are you? (1: Ruben, 2: Tu): ");
             if (authState === 'NEEDS_LOGIN') {
-                 await page.waitForSelector('input[formcontrolname="email"]', { timeout: 10000 });
                 await page.locator('input[formcontrolname="email"]').fill(process.env.NETGEAR_EMAIL);
                 await page.locator('input[formcontrolname="password"]').click();
                 await page.keyboard.type(process.env.NETGEAR_PWD, { delay: 50 });
                 await page.keyboard.press('Enter');
             }
-
-            //mfa
             await page.waitForSelector('#try3', { timeout: 15000 });
             await page.click('#try3');
             await page.click(userChoice === '1' ? 'text=7166' : 'text=6646');
             await page.click('button:has-text("Continue")');
-
-            console.log("\n👉 ACTION REQUIRED: Enter the 6-digit code in the browser.");
-            await askTerminal("Once typed, press [ENTER] here to proceed...");
+            await askTerminal("Enter code in browser, then press [ENTER] here...");
             await page.click('button:has-text("Continue")');
-
-            // trust screen
             try {
-                const trustBtn = page.getByRole('button', { name: 'Trust' });
-                await trustBtn.waitFor({ state: 'visible', timeout: 5000 });
-                await trustBtn.click();
+                await page.click('button:has-text("Trust")', { timeout: 5000 }); 
+                await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 });
             } catch (e) {}
         }
+        await page.waitForFunction(() => window.location.href.includes('dashboard'), { timeout: 30000 });
+        console.log("✅ Inside the Portal.");
+    } catch (e) { console.log("⚠️ Auth bypass."); }
 
-        //stable URL now
-        await page.waitForFunction(() => 
-            window.location.href.includes('dashboard') &&
-            !window.location.href.includes('code='),
-            { timeout: 30000 }
-        );
-        console.log("Inside the Portal.");
-    } catch (e) {
-            console.log("❌ Failed to reach dashboard. Manual intervention may be needed.");
-        }
-//============================================================================================================================
-    // 5. reset loop
+
+    // start the loop
     for (const venueData of swList) {
         const netgearVenueName = venueMap[venueData.venue] || venueData.venue;
-        console.log(`\n🏢 Searching for Venue: ${venueData.venue}`);
+        console.log(`\n🏢 Venue: ${netgearVenueName}`);
 
-        //locate and click the venu
         try {
-    
             await page.click('#headerLocName');
             await page.waitForSelector('.search-location-list', { timeout: 5000 });
-            const venueItem = page.locator('.location-title', { hasText: new RegExp(`^${netgearVenueName}$`, 'i') });
-            await venueItem.scrollIntoViewIfNeeded();
-            await venueItem.click();
-            console.log(`✅ Entered Venue: ${netgearVenueName}`);
+            await page.locator('.location-title', { hasText: new RegExp(`^${netgearVenueName}$`, 'i') }).click();
 
-            //Devices tab
-            await page.waitForSelector('a[href*="/devices/dash"]', { timeout: 10000 });
-            await page.locator('a[href*="/devices/dash"]').click();
             await page.waitForLoadState('networkidle');
+            await page.waitForSelector('a[href*="/devices/dash"]', { timeout: 15000 });
+            await page.locator('a[href*="/devices/dash"]').click();
 
-            // switches details
             for (const sw of venueData.switches) {
-                const targetGroup = normalizeGroupName(sw.group);
-                console.log(`🔍 Search: ${sw.group} -> ${targetGroup}`);
+                const targetGroup = serialToNetgear[sw.serial] || 
+                                    venueGroupToNetgear[`${venueData.venue}|${sw.group}`] || 
+                                    normalizeGroupName(sw.group);
 
-                const searchInput = page.locator('input[placeholder*="Search"]');
-                await searchInput.clear();
-                await searchInput.fill(targetGroup);
-                await page.keyboard.press('Enter');
-                await page.waitForTimeout(2000);
+                console.log(`🔍 Processing Switch: ${sw.location} -> ${targetGroup} (Serial: ${sw.serial})`);
 
-                try {
-                    const switchTarget = page.locator('.ag-cell[col-id="name"]', { hasText: new RegExp(`^${targetGroup}$`, 'i') }).first();
-
-                    await switchTarget.waitFor({ state: 'visible', timeout: 5000 });
-                    await switchTarget.scrollIntoViewIfNeeded();
-                    console.log(`🖱️ CLICK CLICK: ${targetGroup}`);
-                    await switchTarget.click();
-                    await page.waitForTimeout(500);
-                    await switchTarget.dblclick({ force: true });
-
-                    await page.waitForTimeout(2000);
-                    if (page.url().includes('dash')) {
-                        console.log("🔄 Entry failed, trying Role-based link...");
-                        const linkTarget = page.getByRole('link', { name: targetGroup, exact: true }).first();
-                        if (await linkTarget.isVisible()) {
-                            await linkTarget.click();
-                            await linkTarget.dblclick({ force: true });
-                        }
-                    }
-
-                    await page.waitForTimeout(2000);
-                    if (page.url().includes('dash')) {
-                        console.log("🔄 Still on dash, attempting 'Enter' key focus...");
-                        await switchTarget.click();
-                        await page.keyboard.press('Enter');
-                    }
-
-                    await page.waitForURL('**/devices/switch/summary', { timeout: 10000 });
-                    console.log(`✅ Successfully entered: ${targetGroup}`);
-
-                    console.log("\n🛑 Bot paused inside switch. Check if URL is /switch/summary.");
-                    process.exit(0);
-
-                } catch (err) {
-                    console.log(`⚠️ Switch "${targetGroup}" not found in this venue.`);
-
-                    try {
-                        await page.locator('.ag-cell', { hasText: targetGroup }).dblclick({ force: true });
-                        await page.waitForURL('**/devices/switch/summary', { timeout: 10000 });
-                        console.log(`✅ Fallback dblclick worked for: ${targetGroup}`);
-                        process.exit(0);
-                    } catch (innerErr) {
-                        console.log(`❌ All entry methods failed for ${targetGroup}.`);
-                    }
+                if (!page.url().includes('/devices/dash')) {
+                    console.log("⬅️ Returning to Dashboard...");
+                    await page.goto('https://insight.netgear.com/#/devices/dash');
+                    await page.waitForSelector('.ag-root-wrapper', { timeout: 15000 });
+                    await page.waitForTimeout(2000); 
                 }
-                // return to devices list for next bathroom
-                await page.goto('https://insight.netgear.com/#/devices/dash');
-            }
-        } catch (e) { console.log(`❌ Failed venue ${netgearVenueName}.`); }
 
-        // Return to main list
-        await page.goto('https://insight.netgear.com/#/dashboard/account');
+                // searching for the bathroom
+                const searchBar = page.locator('div.m-b-10 input.agGridSearch').first();
+                await searchBar.waitFor({ state: 'visible', timeout: 10000 });
+                await searchBar.click({ clickCount: 3 });
+                await page.keyboard.press('Control+a');
+                await page.keyboard.press('Backspace');
+                await searchBar.fill(targetGroup);
+                await page.waitForTimeout(2000); 
+
+                // double click 
+                const escapedName = targetGroup.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const nameCell = page.locator(
+                    '.ag-pinned-left-cols-container .ag-cell[col-id="name"] p.breakWord'
+                ).filter({ hasText: new RegExp(`^${escapedName}$`) }).first();
+                
+                await nameCell.waitFor({ state: 'visible', timeout: 10000 });
+                await nameCell.dblclick();
+
+                // reached the summary page
+                await page.waitForURL('**/devices/switch/summary**', { timeout: 15000 });
+                console.log(`✅ On switch page for: ${targetGroup}`);
+
+                // --- COMING SOON: POE Hover & Power Cycle Logic ---
+            }
+        } catch (e) {
+            console.log(`❌ Error processing venue ${netgearVenueName}: ${e.message}`);
+        }
     }
-    console.log("\n🚀 All venues processed.");
 })();

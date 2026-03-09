@@ -1,0 +1,165 @@
+[
+  {
+    "venue": "Grand Casino Arena",
+    "switch": "106W",
+    "timeStamp": "2026-03-09T21:32:57.013Z",
+    "ports": [
+      {
+        "port": "1",
+        "traffic": "0",
+        "power": "3.5 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "3",
+        "traffic": "0",
+        "power": "0.4 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "5",
+        "traffic": "0",
+        "power": "3.3 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "7",
+        "traffic": "0",
+        "power": "0.5 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "9",
+        "traffic": "0",
+        "power": "3.5 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "11",
+        "traffic": "0",
+        "power": "5.2 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "13",
+        "traffic": "3583995941",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "15",
+        "traffic": "0",
+        "power": "0 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "17",
+        "traffic": "3584605625",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "19",
+        "traffic": "3582003730",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "21",
+        "traffic": "6415404500",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "23",
+        "traffic": "7014245170",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "2",
+        "traffic": "0",
+        "power": "0.4 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "4",
+        "traffic": "0",
+        "power": "3.2 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "6",
+        "traffic": "0",
+        "power": "0.5 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "8",
+        "traffic": "0",
+        "power": "3.3 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "10",
+        "traffic": "0",
+        "power": "0.4 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "12",
+        "traffic": "0",
+        "power": "1.5 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "14",
+        "traffic": "3596703803",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "16",
+        "traffic": "0",
+        "power": "0 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "18",
+        "traffic": "3589376607",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "20",
+        "traffic": "1643163058",
+        "power": "0 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "22",
+        "traffic": "0",
+        "power": "0 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "24",
+        "traffic": "1860302468",
+        "power": "0 W",
+        "speed": "1000 Full"
+      },
+      {
+        "port": "25",
+        "traffic": "0",
+        "power": "0 W",
+        "speed": "Unknown"
+      },
+      {
+        "port": "26",
+        "traffic": "0",
+        "power": "0 W",
+        "speed": "Unknown"
+      }
+    ]
+  }
+]
