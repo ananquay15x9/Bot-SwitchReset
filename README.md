@@ -28,7 +28,7 @@ The WatchDog operates in a three-stage pipeline:
 ### 🛠️ Setup & Execution
 
 ## IMPORTANT
-For the script to run fully autonomously, you must manually establish a Persistent Session once. This saves your MFA status to the *netgear_session/* folder so the bot can bypass future MFA. 
+For the script to run fully autonomously, you must manually run this script once. This saves your MFA status to the *netgear_session/* folder so the bot can bypass future MFA. 
 
 #### **1. Install Dependencies**
 Ensure you have Node.js installed.
