@@ -32,3 +32,8 @@ Ensure you have Node.js installed.
 ```bash
 npm install playwright axios dotenv
 npx playwright install chromium
+```
+#### **2. Run the Script**
+```bash
+node master.js
+```
