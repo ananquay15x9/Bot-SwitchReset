@@ -27,13 +27,36 @@ The WatchDog operates in a three-stage pipeline:
 
 ### 🛠️ Setup & Execution
 
+## IMPORTANT
+For the script to run fully autonomously, you must manually establish a Persistent Session once. This saves your MFA status to the *netgear_session/* folder so the bot can bypass future MFA. 
+
 #### **1. Install Dependencies**
 Ensure you have Node.js installed.
 ```bash
 npm install playwright axios dotenv
 npx playwright install chromium
 ```
-#### **2. Run the Script**
+
+#### **3. Run the Script**
+```bash
+node master.js
+```
+
+#### **2. Create .env File**
+Create a `.env` file in the root directory. **Do not commit this file.**
+```text
+NETGEAR_EMAIL=admin@isitemediagroup.com
+NETGEAR_PWD=your_secure_password
+
+# MFA Configuration
+# 1 = Ruben | 2 = Tu (Default)
+MFA_USER_CHOICE=1 or 2
+
+# Telegram Config
+TELEGRAM_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_group_id
+```
+
 ```bash
 node master.js
 ```
