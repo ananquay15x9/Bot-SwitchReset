@@ -7,12 +7,12 @@ The system is built to run 3 times daily, ensuring that hardware outages are "ca
 
 The WatchDog operates in a three-stage pipeline:
 
-1.  **`sw-list.js` (The Extractor)**
+1.  **`sw-list.js`**
     * **Audit:** Scans the iSite Dashboard for "Disconnected" devices.
     * **Filtering:** Excludes Faurot Field and iSite Office (can be included later).
     * **Output:** Generates `down-switch-list.json`.
 
-2.  **`swbot.js` (The Healer)**
+2.  **`swbot.js`**
     * **Zombie Detection:** Scans port stats (Wattage, Traffic, Speed).
     * **Phase 1 (Deep Toggle):** Navigates to the port settings and toggles PoE OFF/ON.
     * **Phase 2 (Double Cycle):** Executes a rapid double Power Cycle to ensure the hardware handshake is forced.
