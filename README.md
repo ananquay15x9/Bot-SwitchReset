@@ -14,8 +14,8 @@ The WatchDog operates in a three-stage pipeline:
 
 2.  **`swbot.js`**
     * **Zombie Detection:** Scans port stats (Wattage, Traffic, Speed).
-    * **Phase 1 (Deep Toggle):** Navigates to the port settings and toggles PoE OFF/ON.
-    * **Phase 2 (Double Cycle):** Executes a rapid double Power Cycle to ensure the hardware handshake is forced.
+    * **Phase 1 (PoE Reset):** Navigates to the port settings and toggles PoE OFF/ON.
+    * **Phase 2 (Power Cycle):** Executes power cycle two times.
     * **Output:** Generates `poe-stats-report.json`.
 
 3.  **`master.js`**
@@ -37,11 +37,6 @@ npm install playwright axios dotenv
 npx playwright install chromium
 ```
 
-#### **3. Run the Script**
-```bash
-node master.js
-```
-
 #### **2. Create .env File**
 Create a `.env` file in the root directory. **Do not commit this file.**
 ```text
@@ -56,7 +51,7 @@ MFA_USER_CHOICE=1 or 2
 TELEGRAM_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_group_id
 ```
-
+#### **3. Run the Script**
 ```bash
 node master.js
 ```
