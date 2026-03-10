@@ -18,8 +18,8 @@ The WatchDog operates in a three-stage pipeline:
     * **Phase 2 (Double Cycle):** Executes a rapid double Power Cycle to ensure the hardware handshake is forced.
     * **Output:** Generates `poe-stats-report.json`.
 
-3.  **`master.js` (The Orchestrator)**
-    * **Brain:** Chains the Extractor and Healer together.
+3.  **`master.js`**
+    * **Brain:** Extracts a list of down switches and let the bot do its job.
     * **Verification:** Re-runs the scan after resets to verify success.
     * **Notifications:** Sends a report to the Telegram Group.
 
