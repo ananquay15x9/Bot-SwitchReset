@@ -93,7 +93,9 @@ const venueMap = {
 
         if (authState !== 'LOGGED_IN') {
             console.log("\n👤 MFA Required:");
-            const userChoice = await askTerminal("Who are you? (1: Ruben, 2: Tu): ");
+            const userChoice = process.env.MFA_USER_CHOICE || '2'; // defaults to Tu, CHANGE THIS TO 1 IF THIS IS RUBEN
+            console.log(`Auto-selecting MFA recipient: ${userChoice === '1' ? 'Ruben' : 'Tu'}`);
+            
             if (authState === 'NEEDS_LOGIN') {
                 await page.locator('input[formcontrolname="email"]').fill(process.env.NETGEAR_EMAIL);
                 await page.locator('input[formcontrolname="password"]').click();

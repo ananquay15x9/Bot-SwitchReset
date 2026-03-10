@@ -1,8 +1,0 @@
-2026/03/10-15:14:08.453 4a7ff Reusing MANIFEST /home/anle/code/reset-switch-bot/netgear_session/Default/Local Storage/leveldb/MANIFEST-000001
-2026/03/10-15:14:08.456 4a7ff Recovering log #545
-2026/03/10-15:14:08.456 4a7ff Level-0 table #549: started
-2026/03/10-15:14:08.463 4a7ff Level-0 table #549: 90757 bytes OK
-2026/03/10-15:14:08.466 4a7ff Delete type=0 #545
-2026/03/10-15:14:13.677 4a801 Level-0 table #552: started
-2026/03/10-15:14:13.683 4a801 Level-0 table #552: 55991 bytes OK
-2026/03/10-15:14:13.687 4a801 Delete type=0 #550
