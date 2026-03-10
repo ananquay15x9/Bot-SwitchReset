@@ -1,3 +1,5 @@
+// first run this script to get all the down switches in the list
+
 const { chromium } = require('playwright');
 const fs = require('fs');
 

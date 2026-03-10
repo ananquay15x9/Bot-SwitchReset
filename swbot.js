@@ -1,3 +1,5 @@
+// second, run this script to start restting switches
+
 const { chromium } = require('playwright');
 const fs = require('fs');
 const readline = require('readline');
@@ -78,7 +80,6 @@ const venueMap = {
     const page = await context.newPage();
     const swList = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
 
-    console.log("🚀 Redirecting to Netgear...");
     await page.goto('https://insight.netgear.com/#/landingPage');
     if (await page.isVisible('#loginNow')) await page.click('#loginNow');
 
@@ -114,6 +115,10 @@ const venueMap = {
         console.log("✅ Inside the Portal.");
     } catch (e) { console.log("⚠️ Auth bypass."); }
 
+    // POE stats
+
+    console.log("==================================================================================");
+    const poeReport = [];
 
     // start the loop
     for (const venueData of swList) {
@@ -134,7 +139,7 @@ const venueMap = {
                                     venueGroupToNetgear[`${venueData.venue}|${sw.group}`] || 
                                     normalizeGroupName(sw.group);
 
-                console.log(`🔍 Processing Switch: ${sw.location} -> ${targetGroup} (Serial: ${sw.serial})`);
+                console.log(`🔍 Switch: ${sw.location} -> ${targetGroup} (Serial: ${sw.serial})`);
 
                 if (!page.url().includes('/devices/dash')) {
                     console.log("⬅️ Returning to Dashboard...");
@@ -163,12 +168,221 @@ const venueMap = {
 
                 // reached the summary page
                 await page.waitForURL('**/devices/switch/summary**', { timeout: 15000 });
-                console.log(`✅ On switch page for: ${targetGroup}`);
 
-                // --- COMING SOON: POE Hover & Power Cycle Logic ---
+                // PoE stats
+                await page.waitForSelector('.box-scroller', { timeout: 15000 });
+
+                const stats = await page.evaluate(() => {
+                    return Array.from(document.querySelectorAll('.box-scroller li')).map(port => {
+                        const count = port.querySelector('.ethernet-count')?.innerText.trim();
+                        const tooltip = port.querySelector('.tooltipblock');
+                        if (!tooltip || !count) return null;
+                        const lines = Array.from(tooltip.querySelectorAll('p'));
+                        return {
+                            port: count,
+                            traffic: lines.find(p => p.innerText.includes('Traffic'))?.innerText.split(':').pop().trim() || "0",
+                            power: lines.find(p => p.innerText.includes('Power'))?.innerText.split(':').pop().trim() || "0 W",
+                            speed: lines.find(p => p.innerText.includes('Speed'))?.innerText.split(':').pop().trim() || "Unknown"
+                        };
+                    }).filter(p => p !== null);
+                });
+                
+                // in order 1,2,3,4,..
+                stats.sort((a,b) => parseInt(a.port) - parseInt(b.port));
+
+
+                // sort stats 
+                const targetsToReset = [];
+                const iSitePort = parseInt(sw.port);
+
+                // if it has a specific port, then just reset this port
+                if (!isNaN(iSitePort)) {
+                    console.log(`📊 Crawling Port ${iSitePort}.`);
+                    targetsToReset.push(iSitePort.toString());
+                } 
+                // pair analysis
+                else {
+                    const locationMatch = sw.location.match(/(\d+)$/);
+                    const unitNumber = locationMatch ? parseInt(locationMatch[1]) : null;
+
+                    if (unitNumber) {
+                        const portBottom = unitNumber * 2;
+                        const portTop = portBottom - 1;
+                        const p1 = stats.find(p => parseInt(p.port) === portTop);
+                        const p2 = stats.find(p => parseInt(p.port) === portBottom);
+
+                        if (p1 && p2) {
+                            const power1 = parseFloat(p1.power);
+                            const power2 = parseFloat(p2.power);
+                            const hasTraffic = parseInt(p1.traffic) > 0 || parseInt(p2.traffic) > 0;
+                            const hasLink = p1.speed.toLowerCase().includes('full') || p2.speed.toLowerCase().includes('full');
+
+                            // check if it is healthy
+                            if (hasTraffic || hasLink) {
+                                console.log(`✅ Unit ${unitNumber} appears healthy (Traffic/Link detected). Skipping.`);
+                            } else {
+                                // so reset one or both ports?
+                                const p1IsPi = power1 > 2.0;
+                                const p2IsPi = power2 > 2.0;
+
+                                if (p1IsPi && !p2IsPi) {
+                                    console.log(`🥧 Port ${portTop} is the clear Pi. Resetting only ${portTop}.`);
+                                    targetsToReset.push(p1.port);
+                                } else if (!p1IsPi && p2IsPi) {
+                                    console.log(`🥧 Port ${portBottom} is the clear Pi. Resetting only ${portBottom}.`);
+                                    targetsToReset.push(p2.port);
+                                } else {
+                                    console.log(`❓ Ambiguous pair (Both ${power1}W/${power2}W). Resetting BOTH ${portTop} & ${portBottom}.`);
+                                    targetsToReset.push(p1.port, p2.port);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // FUNCTION TOGGLE
+                async function togglePoE(page, targets, targetState) {
+                    const slider = page.locator('#spnOnOfSliderSetng');
+                    const saveBtn = page.locator('#btnModSaveSettng');
+                    const vlanConfirmYes = page.locator('.modal-content').filter({ 
+                        hasText: 'The VLAN settings will be applied' 
+                    }).getByRole('button', { name: 'Yes' });
+
+                    // toggle
+                    await slider.click();
+
+                    // hit save
+                    await saveBtn.click();
+
+                    // vlan popup
+                    try {
+
+                        await vlanConfirmYes.waitFor({ state: 'visible', timeout: 8000 });
+                        await vlanConfirmYes.click({ force: true });
+
+                        await vlanConfirmYes.waitFor({ state: 'hidden', timeout: 5000 });
+                    } catch (e) {
+                        console.log("❌ Failed to click VLAN 'Yes' button. Trying backup selector...");
+
+                        await page.locator('button.btn-danger:has-text("Yes")').click().catch(() => {});
+                    }
+                }
+
+                // starting PoE reset
+                if (targetsToReset.length > 0) {
+                    try {
+                        console.log(`🔌 PHASE 1: Enable PoE Toggle`);
+                        
+
+                        const firstPort = targetsToReset[0];
+                        await page.locator('.ethernet-count', { hasText: new RegExp(`^${firstPort}$`) }).first().click();
+                        await page.waitForURL('**/portConfiq/summary');
+
+                        // setting -> batch config
+                        await page.click('a[href*="/portConfiq/settings"]');
+                        await page.click('#btnModlSettng'); // "Batch port configuration"
+                        
+                        // click modal
+                        const batchWarningYes = page.locator('#btnBatchOfSett'); // "Yes, open batch config."
+                        await batchWarningYes.waitFor({ state: 'visible', timeout: 5000 });
+                        await batchWarningYes.click();
+
+                        // select ports
+                        for (const portNum of targetsToReset) {
+                            await page.locator(`#port_${portNum}`).click();
+                        }
+
+                        await page.click('#hNsaAccordHeadSettng');
+
+                        // toggle off
+                        await togglePoE(page, targetsToReset, false);
+                        
+                        console.log("⏱️ Waiting 20s");
+                        await page.waitForTimeout(20000);
+
+                        // toggle on
+                        await togglePoE(page, targetsToReset, true);
+                        console.log("🎉 PHASE 1 complete.\n");
+
+
+                        await page.waitForTimeout(5000);
+
+                    } catch (err) {
+                        console.log(`❌ Resetting interrupted: ${err.message}`);
+                    }
+                }
+
+                // power cycle
+                 try {
+                    const closeBatch = page.locator('button.close[data-dismiss="modal"]').first();
+                    if (await closeBatch.isVisible()) await closeBatch.click();
+                } catch (e) {}
+
+                // redirect to summary page to power cycle
+                await page.goto('https://insight.netgear.com/#/devices/switch/summary');
+                await page.reload({ waitUntil: 'networkidle' });
+                await page.waitForSelector('a:has-text("PoE Management")');
+                await page.click('a:has-text("PoE Management")');
+                await page.waitForURL('**/devices/switch/PoE', { timeout: 10000 });
+                console.log("⚡ PHASE 2: Power Cycle")
+                
+                let attempts = 0;
+
+                while (attempts < 2) {
+                    attempts++;
+                    try {
+                        // refresh page after first attempt
+                        if (attempts > 1) {
+                            await page.reload({ waitUntil: 'networkidle' });
+
+                            await page.waitForSelector('a:has-text("PoE Management")');
+                            await page.click('a:has-text("PoE Management")');
+                            await page.waitForURL('**/devices/switch/PoE');
+                        }
+
+
+                        for (const portNum of targetsToReset) {
+                            const portBtn = page.locator(`.ethernet-count`, { hasText: new RegExp(`^${portNum}$`) }).first();
+                            await portBtn.waitFor({ state: 'visible' });
+                            await portBtn.click({ force: true });
+                        }
+
+                        const cycleBtn = page.locator('#btnSavePowerCyclePrts');
+                        
+                        //check if port disabled
+                        let isEnabled = false;
+                        for (let i = 0; i < 10; i++) { 
+                            const isDisabled = await cycleBtn.getAttribute('disabled');
+                            if (isDisabled === null) { isEnabled = true; break; }
+                            await page.waitForTimeout(500); 
+                        }
+
+                        if (isEnabled) {
+                            await cycleBtn.click();
+                            console.log(`✅ Attempt ${attempts} triggered.`);
+                        } else {
+                            console.log(`⚠️ Button stayed disabled. Forcing move to next step.`);
+                        }
+                        if (attempts < 2) {
+                            console.log("⏱️ Waiting 5s before next cycle");
+                            await page.waitForTimeout(5000);
+                        }
+
+                    } catch (e) {
+                        console.log(`❌ Attempt ${attempts} failed: ${e.message}`);
+                        break; 
+                    }
+                }
+                console.log("🎉 PHASE 2: complete.\n");
+
+
+                poeReport.push({ venue: venueData.venue, switch: targetGroup, timeStamp: new Date().toISOString(), ports: stats });
+                await page.goto('https://insight.netgear.com/#/devices/dash');
             }
         } catch (e) {
             console.log(`❌ Error processing venue ${netgearVenueName}: ${e.message}`);
         }
     }
+    fs.writeFileSync('poe-stats-report.json', JSON.stringify(poeReport, null, 2));
+    console.log("\n✨ Reset Complete! Check 'poe-stats-report.json'.");
 })();

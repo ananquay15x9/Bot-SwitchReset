@@ -1,17 +1,8 @@
-2026/03/09-16:31:16.229 307d7 Reusing MANIFEST /home/anle/code/reset-switch-bot/netgear_session/Default/Local Storage/leveldb/MANIFEST-000001
-2026/03/09-16:31:16.232 307d7 Recovering log #350
-2026/03/09-16:31:16.233 307d7 Level-0 table #353: started
-2026/03/09-16:31:16.286 307d7 Level-0 table #353: 90512 bytes OK
-2026/03/09-16:31:16.290 307d7 Delete type=0 #350
-2026/03/09-16:31:16.291 307d9 Compacting 4@0 + 1@1 files
-2026/03/09-16:31:16.295 307d9 Generated table #355@0: 138 keys, 108744 bytes
-2026/03/09-16:31:16.295 307d9 Compacted 4@0 + 1@1 files => 108744 bytes
-2026/03/09-16:31:16.300 307d9 compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/03/09-16:31:16.300 307d9 Delete type=2 #344
-2026/03/09-16:31:16.300 307d9 Delete type=2 #346
-2026/03/09-16:31:16.300 307d9 Delete type=2 #348
-2026/03/09-16:31:16.300 307d9 Delete type=2 #351
-2026/03/09-16:31:16.300 307d9 Delete type=2 #353
-2026/03/09-16:31:21.421 307d9 Level-0 table #357: started
-2026/03/09-16:31:21.457 307d9 Level-0 table #357: 54023 bytes OK
-2026/03/09-16:31:21.461 307d9 Delete type=0 #354
+2026/03/10-15:14:08.453 4a7ff Reusing MANIFEST /home/anle/code/reset-switch-bot/netgear_session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/03/10-15:14:08.456 4a7ff Recovering log #545
+2026/03/10-15:14:08.456 4a7ff Level-0 table #549: started
+2026/03/10-15:14:08.463 4a7ff Level-0 table #549: 90757 bytes OK
+2026/03/10-15:14:08.466 4a7ff Delete type=0 #545
+2026/03/10-15:14:13.677 4a801 Level-0 table #552: started
+2026/03/10-15:14:13.683 4a801 Level-0 table #552: 55991 bytes OK
+2026/03/10-15:14:13.687 4a801 Delete type=0 #550
