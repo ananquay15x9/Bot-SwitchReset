@@ -1,0 +1,259 @@
+[
+  {
+    "venue": "Auburn - Neville Arena",
+    "switches": [
+      {
+        "serial": "1000000089f571cd",
+        "port": "12",
+        "location": "110M 06",
+        "group": "110M"
+      }
+    ]
+  },
+  {
+    "venue": "Dicks Sporting Goods Park",
+    "switches": [
+      {
+        "serial": "10000000ef7a84a1",
+        "port": "N/A",
+        "location": "104W 03",
+        "group": "104W"
+      },
+      {
+        "serial": "10000000a6300d8a",
+        "port": "N/A",
+        "location": "114W 02",
+        "group": "114W"
+      },
+      {
+        "serial": "100000003967bfcf",
+        "port": "10",
+        "location": "Suite01W 02",
+        "group": "Suite01W"
+      }
+    ]
+  },
+  {
+    "venue": "Grand Casino Arena",
+    "switches": [
+      {
+        "serial": "000000002fb06165",
+        "port": "12",
+        "location": "106W 06",
+        "group": "106W"
+      },
+      {
+        "serial": "00000000fce1bc20",
+        "port": "1",
+        "location": "118M 01",
+        "group": "118M"
+      },
+      {
+        "serial": "00000000e6fa4659",
+        "port": "N/A",
+        "location": "207M 02",
+        "group": "207M"
+      }
+    ]
+  },
+  {
+    "venue": "Louisville - KFC Yum! Center",
+    "switches": [
+      {
+        "serial": "000000005c399d60",
+        "port": "6",
+        "location": "116M 002",
+        "group": "116 Mens"
+      },
+      {
+        "serial": "000000004a36649e",
+        "port": "3",
+        "location": "116M 005",
+        "group": "116 Mens"
+      },
+      {
+        "serial": "00000000f1ed7bb2",
+        "port": "15",
+        "location": "116W 001",
+        "group": "116 Womens"
+      },
+      {
+        "serial": "0000000055b47d51",
+        "port": "15",
+        "location": "116W 003*",
+        "group": "116 Womens"
+      },
+      {
+        "serial": "000000004a41d11f",
+        "port": "N/A",
+        "location": "301M 006",
+        "group": "301 Mens"
+      },
+      {
+        "serial": "00000000c7eeb0be",
+        "port": "5",
+        "location": "320M 003",
+        "group": "320 Mens"
+      }
+    ]
+  },
+  {
+    "venue": "Mizzou Arena",
+    "switches": [
+      {
+        "serial": "10000000525aecad",
+        "port": "N/A",
+        "location": "102M 03",
+        "group": "102 Mens"
+      },
+      {
+        "serial": "10000000ba3aad84",
+        "port": "N/A",
+        "location": "113W 02",
+        "group": "113 Womens"
+      }
+    ]
+  },
+  {
+    "venue": "Old Dominion - Chartway Arena",
+    "switches": [
+      {
+        "serial": "1000000080cd2645",
+        "port": "N/A",
+        "location": "101W 02",
+        "group": "101W"
+      },
+      {
+        "serial": "10000000f2698bef",
+        "port": "19",
+        "location": "A102W 04",
+        "group": "A102W"
+      }
+    ]
+  },
+  {
+    "venue": "Penn State: Bryce Jordan Center",
+    "switches": [
+      {
+        "serial": "10000000798f04c4",
+        "port": "N/A",
+        "location": "117W 03",
+        "group": "117W"
+      },
+      {
+        "serial": "10000000785b3dac",
+        "port": "N/A",
+        "location": "128LW 02",
+        "group": "128LW"
+      }
+    ]
+  },
+  {
+    "venue": "Providence Park",
+    "switches": [
+      {
+        "serial": "00000000f8260b76",
+        "port": "6",
+        "location": "098M-03",
+        "group": "098M"
+      }
+    ]
+  },
+  {
+    "venue": "Shell Energy Stadium",
+    "switches": [
+      {
+        "serial": "100000001dc5ee9a",
+        "port": "N/A",
+        "location": "208M 02",
+        "group": "208M"
+      }
+    ]
+  },
+  {
+    "venue": "TQL Stadium",
+    "switches": [
+      {
+        "serial": "000000002f2058aa",
+        "port": "20",
+        "location": "212M-10",
+        "group": "212M"
+      },
+      {
+        "serial": "00000000d93a8d9e",
+        "port": "20",
+        "location": "215W-04",
+        "group": "215W"
+      },
+      {
+        "serial": "0000000075e98169",
+        "port": "7",
+        "location": "232M-04",
+        "group": "232M"
+      }
+    ]
+  },
+  {
+    "venue": "UNC - Dean Smith Center",
+    "switches": [
+      {
+        "serial": "000000000130dd28",
+        "port": "1",
+        "location": "101M 12",
+        "group": "101M"
+      }
+    ]
+  },
+  {
+    "venue": "Villanova - Finneran Pavilion",
+    "switches": [
+      {
+        "serial": "10000000bc16c48f",
+        "port": "N/A",
+        "location": "210M 02",
+        "group": "210M"
+      }
+    ]
+  },
+  {
+    "venue": "Virginia - John Paul Jones",
+    "switches": [
+      {
+        "serial": "10000000be1bc243",
+        "port": "N/A",
+        "location": "106W 05",
+        "group": "106W (T-257)"
+      },
+      {
+        "serial": "10000000fb1c8317",
+        "port": "N/A",
+        "location": "301W 02",
+        "group": "301W (T-325)"
+      },
+      {
+        "serial": "10000000cf389628",
+        "port": "N/A",
+        "location": "311W2 01",
+        "group": "311W2 (T-304)"
+      },
+      {
+        "serial": "1000000022c4d887",
+        "port": "N/A",
+        "location": "311W2 02",
+        "group": "311W2 (T-304)"
+      },
+      {
+        "serial": "100000003dd90f36",
+        "port": "N/A",
+        "location": "314W 01",
+        "group": "314W (T-312)"
+      },
+      {
+        "serial": "10000000a5b2c412",
+        "port": "N/A",
+        "location": "314W 02",
+        "group": "314W (T-312)"
+      }
+    ]
+  }
+]

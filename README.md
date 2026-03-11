@@ -1,11 +1,11 @@
-### iSite Switch WatchDog
+### iSite Switch Bot
 The bot analyzes power draw (wattage) and traffic stats to identify frozen units that appear to have power but are frozen and not communicating.
 
 The system is built to run 3 times daily, ensuring that hardware outages are "canceled" before they affect venue operations.
 
 ### 🏗️ Project Architecture
 
-The WatchDog operates in a three-stage pipeline:
+The Bot operates in a three-stage pipeline:
 
 1.  **`sw-list.js`**
     * **Audit:** Scans the iSite Dashboard for "Disconnected" devices.
@@ -50,7 +50,7 @@ For the script to run fully autonomously, you must manually run this script once
 #### **1. Install Dependencies**
 Ensure you have Node.js installed.
 ```bash
-npm install playwright axios dotenv readline rl
+npm install playwright axios dotenv readline rl node-schedule
 npx playwright install chromium
 ```
 

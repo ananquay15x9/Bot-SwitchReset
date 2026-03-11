@@ -33,9 +33,9 @@ _Simply type a command below to begin._`;
 
 // generate a report and send to telegram
 function generateReport() {
-    if (!fs.existsSync('down-device-list.json')) return "❓ No down-device-list found. Run a scan first.";
+    if (!fs.existsSync('down-devices-list.json')) return "❓ No down-devices-list found. Run a scan first.";
 
-    const data = JSON.parse(fs.readFileSync('down-device-list.json', 'utf8'));
+    const data = JSON.parse(fs.readFileSync('down-devices-list.json', 'utf8'));
     let totalDown = 0;
     let report = "📊 **iSite Outage Report**\n\n";
 
@@ -157,7 +157,7 @@ ${COMMAND_MENU}`;
         // option 3: targeted reste
         else if (text.startsWith('reset ')) {
             const query = text.replace('reset ', '').trim();
-            const data = JSON.parse(fs.readFileSync('down-device-list.json', 'utf8'));
+            const data = JSON.parse(fs.readFileSync('down-devices-list.json', 'utf8'));
             
             // find matches
             const matches = data.filter(v => v.venue.toLowerCase().includes(query));

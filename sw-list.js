@@ -22,7 +22,7 @@ const fs = require('fs');
 
   await page.waitForLoadState('networkidle');
 
-  // venues with down switches
+  // venues with down devices
   const venues = await page.evaluate(() => {
     const rows = Array.from(document.querySelectorAll('#dashboard-admin-issues-content table tr')).slice(1);
     return rows.map(row => {
@@ -41,7 +41,7 @@ const fs = require('fs');
 
   const finalOutput = [];
 
-  // pulling all switches data
+  // pulling all devices data
   for (const venue of venues) {
     console.log(`Pulling ${venue.name}...`);
     const cacheBuster = `${venue.url}${venue.url.includes('?') ? '&' : '?'}t=${Date.now()}`;
@@ -79,8 +79,8 @@ const fs = require('fs');
   }
 
   // write to json
-  fs.writeFileSync('down-switch-list.json', JSON.stringify(finalOutput, null, 2));
-  console.log("Please check 'down-switch-list.json' 🥲" );
+  fs.writeFileSync('down-devices-list.json', JSON.stringify(finalOutput, null, 2));
+  console.log("Please check 'down-devices-list.json' 🥲" );
 
   await browser.close();
 })();
