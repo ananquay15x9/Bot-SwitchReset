@@ -472,4 +472,7 @@ const venueMap = {
     }
     fs.writeFileSync('poe-stats-report.json', JSON.stringify(poeReport, null, 2));
     console.log("\n✨ Reset Complete! Check 'poe-stats-report.json'.");
+
+    await context.close();
+    process.exit(0);
 })();
