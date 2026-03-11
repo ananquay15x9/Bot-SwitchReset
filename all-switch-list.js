@@ -2,7 +2,8 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 
 (async () => {
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch({ headless: process.env.NODE_ENV === 'production' ? true : false,
+  args: ['--no-sandbox'] });
   const page = await browser.newPage();
 
   console.log("🚀 Logging into iSite Portal...");
