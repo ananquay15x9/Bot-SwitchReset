@@ -1,6 +1,7 @@
 // first run this script to get all the down switches in the list
 
 const { chromium } = require('playwright');
+require('dotenv').config();
 const fs = require('fs');
 
 (async () => {
@@ -9,8 +10,8 @@ const fs = require('fs');
 
   // let the bot login
   await page.goto('https://portal.isitemediagroup.com/users/sign_in');
-  await page.getByRole('textbox', { name: 'Email' }).fill('tle@isitemediagroup.com');
-  await page.getByRole('textbox', { name: 'Password' }).fill('Ahihi123456?');
+  await page.getByRole('textbox', { name: 'Email' }).fill(process.env.PORTAL_EMAIL);
+  await page.getByRole('textbox', { name: 'Password' }).fill(process.env.PORTAL_PWD);
   await page.getByRole('button', { name: 'Sign In' }).click();
   await page.waitForURL('**/portal');
 
