@@ -204,13 +204,36 @@ ${COMMAND_MENU}`;
     }
 }
 
+const schedule = require('node-schedule');
+
+function setupScheduler() {
+    // times: 8:00 AM, 2:00 PM, and 7:00 PM (Chicago Time)
+    const scheduledTimes = ['0 8 * * *', '0 14 * * *', '0 19 * * *'];
+
+    scheduledTimes.forEach(t => {
+        schedule.scheduleJob(t, async () => {
+            console.log(`🕒 Scheduled Shift Triggered (${t}): Sending Bot...`);
+            await sendTelegram("🤖 **Scheduled Shift Started.** Running full audit and reset cycle...");
+
+            await runScript('sw-list.js');
+            await runScript('swbot.js');
+
+            await sendTelegram("✨ **Auto-Run Complete.** Here is the final status:");
+            await sendTelegram(generateReport());
+        });
+    });
+    console.log("📅 Scheduler active: 8:00 AM, 2:00 PM, 7:00 PM shifts locked in.");
+}
+
+
 if (process.argv.includes('--auto')) {
     (async () => {
         console.log("🤖 AUTO: Running full scan and reset.");
         await runScript('sw-list.js');
         await runScript('swbot.js');
-        process.exit(0); // exit
+        process.exit(0); 
     })();
 } else {
+    setupScheduler(); 
     startResetting(); 
 }
