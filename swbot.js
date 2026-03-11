@@ -3,6 +3,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const readline = require('readline');
+const axios = require('axios');
 require('dotenv').config();
 
 const askTerminal = (query) => {
@@ -12,6 +13,58 @@ const askTerminal = (query) => {
         resolve(ans);
     }));
 };
+
+//login remotely
+const getMFACode = async (botToken, chatId) => {
+    console.log("📡 Remote MFA Mode: Please send a 6-digit code in Telegram or Terminal:");
+    
+    // flush the old message and get new one
+    // we can now let the bot login via telegram or terminal, send the code to terminal worked
+    let lastUpdateId = 0;
+    try {
+        const initialRes = await axios.get(`https://api.telegram.org/bot${botToken}/getUpdates`);
+        const updates = initialRes.data.result;
+        if (updates.length > 0) {
+            lastUpdateId = updates[updates.length - 1].update_id;
+        }
+    } catch (e) { console.error("⚠️ Initial flush failed."); }
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    let terminalCode = null;
+    
+    rl.question("📥 Or enter code here manually: ", (ans) => {
+        if (/^\d{6}$/.test(ans)) terminalCode = ans;
+        rl.close();
+    });
+
+    while (true) {
+        if (terminalCode) return terminalCode;
+
+        try {
+            //fetch new message only
+            const response = await axios.get(`https://api.telegram.org/bot${botToken}/getUpdates`, {
+                params: { offset: lastUpdateId + 1, timeout: 5 }
+            });
+
+            const updates = response.data.result;
+            for (const update of updates) {
+                lastUpdateId = update.update_id;
+                const msg = update.message?.text;
+                
+                if (msg && /^\d{6}$/.test(msg.trim())) {
+                    console.log(`✅ Received NEW MFA from Telegram: ${msg}`);
+                    rl.close(); 
+                    return msg.trim();
+                }
+            }
+        } catch (e) {
+            console.error("⚠️ Telegram polling error:", e.message);
+        }
+        await new Promise(r => setTimeout(r, 3000));
+    }
+};
+
+
 
 function normalizeGroupName(name) {
     if (!name) return "";
@@ -83,47 +136,79 @@ const venueMap = {
     await page.goto('https://insight.netgear.com/#/landingPage');
     if (await page.isVisible('#loginNow')) await page.click('#loginNow');
 
-    // login and mfa
+    // AUTH LOGIN
+    let authState = 'UNKNOWN';
     try {
-        const authState = await Promise.race([
+        authState = await Promise.race([
             page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('code='), { timeout: 15000 }).then(() => 'LOGGED_IN'),
             page.waitForSelector('input[formcontrolname="email"]', { timeout: 10000 }).then(() => 'NEEDS_LOGIN'),
             page.waitForSelector('#try3', { timeout: 10000 }).then(() => 'NEEDS_MFA')
         ]);
+    } catch (e) { console.log("ℹ️ Checking session..."); }
 
-        if (authState !== 'LOGGED_IN') {
-            console.log("\n👤 MFA Required:");
-            const userChoice = process.env.MFA_USER_CHOICE || '2'; // defaults to Tu, CHANGE THIS TO 1 IF THIS IS RUBEN
-            console.log(`Auto-selecting MFA recipient: ${userChoice === '1' ? 'Ruben' : 'Tu'}`);
-            
-            if (authState === 'NEEDS_LOGIN') {
-                await page.locator('input[formcontrolname="email"]').fill(process.env.NETGEAR_EMAIL);
-                await page.locator('input[formcontrolname="password"]').click();
-                await page.keyboard.type(process.env.NETGEAR_PWD, { delay: 50 });
-                await page.keyboard.press('Enter');
-            }
-            await page.waitForSelector('#try3', { timeout: 15000 });
-            await page.click('#try3');
-            await page.click(userChoice === '1' ? 'text=7166' : 'text=6646');
-            await page.click('button:has-text("Continue")');
-            await askTerminal("Enter code in browser, then press [ENTER] here...");
-            await page.click('button:has-text("Continue")');
-            try {
-                await page.click('button:has-text("Trust")', { timeout: 5000 }); 
-                await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 });
-            } catch (e) {}
+    if (authState !== 'LOGGED_IN') {
+        console.log("\n👤 MFA Required:");
+        const userChoice = process.env.MFA_USER_CHOICE || '2';
+        console.log(`Hello, ${userChoice === '1' ? 'Ruben' : 'Tu'}`);
+        
+        if (authState === 'NEEDS_LOGIN') {
+            await page.locator('input[formcontrolname="email"]').fill(process.env.NETGEAR_EMAIL);
+            await page.locator('input[formcontrolname="password"]').click();
+            await page.keyboard.type(process.env.NETGEAR_PWD, { delay: 50 });
+            await page.keyboard.press('Enter');
         }
-        await page.waitForFunction(() => window.location.href.includes('dashboard'), { timeout: 30000 });
-        console.log("✅ Inside the Portal.");
-    } catch (e) { console.log("⚠️ Auth bypass."); }
+
+        await page.waitForSelector('#try3', { timeout: 15000 });
+        await page.click('#try3');
+        await page.click(userChoice === '1' ? 'text=7166' : 'text=6646');
+        await page.click('button:has-text("Continue")');
+
+        // Send Telegram Prompt
+        await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: process.env.TELEGRAM_CHAT_ID,
+            text: `🚨 *iSite WatchDog:* MFA Code required for Netgear! \n\nPlease reply with the 6-digit code.`,
+            parse_mode: 'Markdown'
+        });
+
+        const mfaCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
+        const otpInput = page.locator('input.otp-input').first();
+        await otpInput.waitFor({ state: 'visible', timeout: 15000 });
+
+        // clear the field first
+        await otpInput.click({ clickCount: 3 });
+        await page.keyboard.press('Control+a');
+        await page.keyboard.press('Backspace');
+
+        await otpInput.fill(mfaCode);
+        await page.waitForTimeout(1000);
+        await page.click('button:has-text("Continue")');
+        
+        try {
+            await page.click('button:has-text("Trust")', { timeout: 5000 }); 
+            await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 });
+        } catch (e) {}
+    }
+
+    await page.waitForFunction(() => window.location.href.includes('dashboard'), { timeout: 30000 });
+    console.log("✅ Inside the Portal.");
+
+
 
     // POE stats
 
     console.log("==================================================================================");
     const poeReport = [];
 
+    // or just target certain place and reset
+    const targetArg = process.argv[2] ? process.argv[2].toLowerCase() : null;
+
     // start the loop
     for (const venueData of swList) {
+        if (targetArg && !venueData.venue.toLowerCase().includes(targetArg)) {
+            console.log(`Skipping ${venueData.venue} (Not requested)`);
+            continue;
+        }
+        
         const netgearVenueName = venueMap[venueData.venue] || venueData.venue;
         console.log(`\n🏢 Venue: ${netgearVenueName}`);
 

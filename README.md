@@ -23,6 +23,23 @@ The WatchDog operates in a three-stage pipeline:
     * **Verification:** Re-runs the scan after resets to verify success.
     * **Notifications:** Sends a report to the Telegram Group.
 
+
+### 🔐 The netgear_session/ Folder
+This folder acts as the bot's "memory."
+
+* It stores browser cookies, local storage, and validated MFA session tokens. 
+* The bot will use these files to login automatically without asking for a text code for multiple times.
+* This folder is listed in **.gitignore**. Never share these files, as they allow access to Netgear account without a password. 
+
+### 🎮 Control & Commands
+The bot can be controlled via the Terminal or Telegram group chat. 
+| Command |  Action  
+|:-----|:--------:|
+| scan or status   | Audits the switches and send a report to Telegram group chat. | 
+| reset all   |  Resets every down switch found in the latest scan.|  
+| reset [venue]   | (e.g., reset auburn) and only fixes that site. |  
+| ping or hi or are you online?  | Checks if the bot is online and listening. |  
+
 ---
 
 ### 🛠️ Setup & Execution
@@ -33,12 +50,12 @@ For the script to run fully autonomously, you must manually run this script once
 #### **1. Install Dependencies**
 Ensure you have Node.js installed.
 ```bash
-npm install playwright axios dotenv
+npm install playwright axios dotenv readline rl
 npx playwright install chromium
 ```
 
 #### **2. Create .env File**
-Create a `.env` file in the root directory. **Do not commit this file.**
+Create a `.env` file in the root directory and fill in the info. **Do not commit this file.**
 ```text
 NETGEAR_EMAIL=admin@isitemediagroup.com
 NETGEAR_PWD=your_secure_password

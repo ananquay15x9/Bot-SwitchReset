@@ -4,3 +4,4 @@ poe-stats-report.json
 netgear_session/
 node_modules/
 *.log
+test.js

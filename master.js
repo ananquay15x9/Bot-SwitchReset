@@ -1,6 +1,7 @@
-const { execSync } = require('child_process');
+const { exec } = require('child_process');
 const fs = require("fs");
 const axios = require('axios');
+const readline = require('readline');
 require('dotenv').config();
 
 const TG_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -19,53 +20,145 @@ async function sendTelegram(message) {
     }
 }
 
-async function startRecovery() {
-    console.log("🕒 Starting the recovery cycle...");
+// generate a report and send to telegram
+function generateReport() {
+    if (!fs.existsSync('down-switch-list.json')) return "No down-switch-list found. Run a scan first.";
+
+    const data = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
+    let totalDown = 0;
+    let report = "📊 **iSite Outage Report**\n\n";
+
+    data.forEach(v => {
+        report += `• **${v.venue}**: ${v.switches.length} switches down\n`;
+        totalDown += v.switches.length;
+    });
+
+    // re format time
+    const time = new Date().toLocaleString("en-US", {
+        timeZone: "America/Chicago",
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        month: '2-digit', day: '2-digit', year: 'numeric'
+    });
+
+    report += `\n**Total:** ${totalDown} switches down\n`;
+    report += `**Timestamp:** ${time} (Chicago Time)\n`;
+    return report;
+}
+
+// command option to choose
+function runScript(scriptName, args = "") {
+    return new Promise((resolve) => {
+        console.log(`🚀 Running: node ${scriptName} ${args}`);
+        const child = exec(`node ${scriptName} ${args}`);
+        
+        child.stdout.on('data', (data) => console.log(data));
+        child.stderr.on('data', (data) => console.error(data));
+        
+        child.on('close', (code) => {
+            console.log(`✅ ${scriptName} finished with code ${code}`);
+            resolve(code);
+        });
+    });
+}
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+async function startResetting() {
+    console.log("🕒 Starting the reset cycle...");
+    console.log("🎮 Control via: [Telegram] or [Terminal Type: scan / reset all / reset venue]");
+
+    // flush old messages 
+
+    let lastUpdateId = 0;
 
     try {
-        // first scan
-        console.log("📡 Running sw-list.js...");
-        execSync('node sw-list.js');
-        const initial = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
-        const totalInitial = initial.reduce((sum, v) => sum + v.switches.length, 0);
+        const initialRes = await axios.get(`https://api.telegram.org/bot${TG_TOKEN}/getUpdates`);
+        const updates = initialRes.data.result;
+        if (updates.length > 0) {
+            // set the ID to the most recent message so we skip everything prior
+            lastUpdateId = updates[updates.length - 1].update_id;
+            console.log(`🧹 Flushed ${updates.length} old Telegram messages.`);
+        }
+    } catch (e) { console.error("⚠️ Initial flush failed, starting fresh."); }
 
-        if (totalInitial === 0) {
-            return await sendTelegram("✨ *Vibe Check:* Immaculate. No switches are down. We are thriving. 💅");
+    // ------------------------------------------
+
+    await sendTelegram("🤖 **WatchDog Online.** I'm listening for commands:")
+
+
+    //terminal listener
+    rl.on('line', async (input) => {
+        const cmd = input.trim().toLowerCase();
+        if (cmd) await handleCommand(cmd);
+    });
+
+    // command handler
+    async function handleCommand(text) {
+        // 0, checking if it's online
+        if (text === 'hi' || text === 'ping' || text === 'are you online' || text === 'online?' || text === 'are you online?' || text === 'online') {
+            await sendTelegram("👋 I'm online! Ready to slay some switches. 🦾");
+        }
+        // option 1: scan
+        if (text === 'scan' || text === 'status') {
+            await sendTelegram("🔎 Starting full network audit...");
+            await runScript('sw-list.js');
+            await sendTelegram(generateReport());
+        }
+        // option 2: reset all
+        else if (text === 'reset all') {
+            await sendTelegram("Starting FULL network reset cycle...");
+            await runScript('swbot.js');
+            await sendTelegram("✨ All down switches have been reset.");
+        }
+        // option 3: targeted reste
+        else if (text.startsWith('reset ')) {
+            const query = text.replace('reset ', '').trim();
+            const data = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
+            
+            // find matches
+            const matches = data.filter(v => v.venue.toLowerCase().includes(query));
+
+            if (matches.length === 0) {
+                await sendTelegram(`❓ No venue found matching "${query}". Check the report and try again.`);
+            } else if (matches.length > 1) {
+                const options = matches.map(m => m.venue).join('\n');
+                await sendTelegram(`⚠️ Multiple matches found:\n${options}\n\nPlease be more specific!`);
+            } else {
+                const target = matches[0].venue;
+                await sendTelegram(`🎯 Target Acquired: **${target}**. Launching swbot...`);
+                await runScript('swbot.js', `"${target}"`);
+                await sendTelegram(`✅ Reset cycle for ${target} complete.`);
+            }
         }
 
-        await sendTelegram(`🚨 *iSite WatchDog:* Found ${totalInitial} switches acting up. Sending the bot to fix their attitude. 😤`);
+    }
 
-        // start resetting
-        console.log("🤖 Running swbot.js...");
-        execSync('node swbot.js');
-
-        // final check
-        console.log("📡 Running final scan...");
-        execSync('node sw-list.js');
-        const remaining = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
-        const totalRemaining = remaining.reduce((sum, v) => sum + v.switches.length, 0);
-
-        // send us the report
-        const recoveredCount = totalInitial - totalRemaining;
-        let report = `🚀 *iSite WatchDog Recovery Report*\n\n`;
-        report += `📉 *Total Down Initially:* ${totalInitial}\n`;
-        report += `✅ *Resets Slayed:* ${recoveredCount}\n`;
-
-        if (totalRemaining > 0) {
-            report += `❌ *Still Being Delulu:* ${totalRemaining}\n\n*Pending Details:*\n`;
-            remaining.forEach(v => {
-                v.switches.forEach(s => report += `- ${v.venue}: ${s.location} (Rent Free 🏠)\n`);
+    while (true) {
+        try {
+            const response = await axios.get(`https://api.telegram.org/bot${TG_TOKEN}/getUpdates`, {
+                params: { offset: lastUpdateId + 1, timeout: 5 }
             });
-            report += `\n_Bruh, these might need a manual check._`;
-        } else {
-            report += `\n✨ *Outages are officially canceled. We solved the problem, yay!*`;
+
+            const updates = response.data.result;
+            for (const update of updates) {
+                lastUpdateId = update.update_id;
+                const text = update.message?.text?.toLowerCase() || "";
+                if (text) await handleCommand(text);
+            }            
+        } catch (e) {
+            console.error("⚠️ Connection error, retrying...", e.message);
         }
-
-        await sendTelegram(report);
-
-    } catch (error) {
-        await sendTelegram(`🤡 *Bot Error:* ${error.message}`);
+        await new Promise(r => setTimeout(r, 3000));
     }
 }
 
-startRecovery();
+if (process.argv.includes('--auto')) {
+    (async () => {
+        console.log("🤖 AUTO: Running full scan and reset.");
+        await runScript('sw-list.js');
+        await runScript('swbot.js');
+        process.exit(0); // exit
+    })();
+} else {
+    startResetting(); 
+}
