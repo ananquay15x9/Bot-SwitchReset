@@ -23,7 +23,7 @@ async function sendTelegram(message) {
 const COMMAND_MENU = `
 **Available Commands:**
 • \`scan\` - Full network audit
-• \`reset all\` - Reset every down switch
+• \`reset all\` - Reset every down device
 • \`reset [venue]\` - Reset a specific site (e.g., \`reset mizzou\`)
 • \`status\` - Re-send the latest report
 • \`ping\` - Check if I'm awake
@@ -33,14 +33,14 @@ _Simply type a command below to begin._`;
 
 // generate a report and send to telegram
 function generateReport() {
-    if (!fs.existsSync('down-switch-list.json')) return "❓ No down-switch-list found. Run a scan first.";
+    if (!fs.existsSync('down-device-list.json')) return "❓ No down-device-list found. Run a scan first.";
 
-    const data = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
+    const data = JSON.parse(fs.readFileSync('down-device-list.json', 'utf8'));
     let totalDown = 0;
     let report = "📊 **iSite Outage Report**\n\n";
 
     data.forEach(v => {
-        report += `• **${v.venue}**: ${v.switches.length} switches down\n`;
+        report += `• **${v.venue}**: ${v.switches.length} devices down\n`;
         totalDown += v.switches.length;
     });
 
@@ -51,7 +51,7 @@ function generateReport() {
         month: '2-digit', day: '2-digit', year: 'numeric'
     });
 
-    report += `\n**Total:** ${totalDown} switches down\n`;
+    report += `\n**Total:** ${totalDown} devices down\n`;
     report += `**Timestamp:** ${time} (Chicago Time)\n`;
 
     report += "----------------------------------\n";
@@ -151,13 +151,13 @@ ${COMMAND_MENU}`;
         else if (text === 'reset all') {
             await sendTelegram("Starting FULL network reset cycle...");
             await runScript('swbot.js');
-            await sendTelegram("✨ All down switches have been reset.");
+            await sendTelegram("✨ All down devices have been reset.");
         }
 
         // option 3: targeted reste
         else if (text.startsWith('reset ')) {
             const query = text.replace('reset ', '').trim();
-            const data = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
+            const data = JSON.parse(fs.readFileSync('down-device-list.json', 'utf8'));
             
             // find matches
             const matches = data.filter(v => v.venue.toLowerCase().includes(query));

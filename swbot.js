@@ -134,7 +134,7 @@ const venueMap = {
     });
 
     const page = await context.newPage();
-    const swList = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
+    const swList = JSON.parse(fs.readFileSync('down-devices-list.json', 'utf8'));
 
     await page.goto('https://insight.netgear.com/#/landingPage');
     if (await page.isVisible('#loginNow')) await page.click('#loginNow');
@@ -229,7 +229,7 @@ const venueMap = {
                                     venueGroupToNetgear[`${venueData.venue}|${sw.group}`] || 
                                     normalizeGroupName(sw.group);
 
-                console.log(`🔍 Switch: ${sw.location} -> ${targetGroup} (Serial: ${sw.serial})`);
+                console.log(`🔍 Device: ${sw.location} -> ${targetGroup} (Serial: ${sw.serial})`);
 
                 if (!page.url().includes('/devices/dash')) {
                     console.log("⬅️ Returning to Dashboard...");
@@ -466,7 +466,7 @@ const venueMap = {
                 console.log("🎉 PHASE 2: complete.\n");
 
 
-                poeReport.push({ venue: venueData.venue, switch: targetGroup, timeStamp: new Date().toISOString(), ports: stats });
+                poeReport.push({ venue: venueData.venue, device: targetGroup, timeStamp: new Date().toISOString(), ports: stats });
                 await page.goto('https://insight.netgear.com/#/devices/dash');
             }
         } catch (e) {

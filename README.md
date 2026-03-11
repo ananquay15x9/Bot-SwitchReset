@@ -1,5 +1,5 @@
 ### iSite Switch WatchDog
-The "WatchDog" doesn't just reboot switches; it analyzes power draw (wattage) and traffic stats to identify frozen units that appear to have power but are frozen and not communicating.
+The bot analyzes power draw (wattage) and traffic stats to identify frozen units that appear to have power but are frozen and not communicating.
 
 The system is built to run 3 times daily, ensuring that hardware outages are "canceled" before they affect venue operations.
 
@@ -10,7 +10,7 @@ The WatchDog operates in a three-stage pipeline:
 1.  **`sw-list.js`**
     * **Audit:** Scans the iSite Dashboard for "Disconnected" devices.
     * **Filtering:** Excludes Faurot Field and iSite Office (can be included later).
-    * **Output:** Generates `down-switch-list.json`.
+    * **Output:** Generates `down-device-list.json`.
 
 2.  **`swbot.js`**
     * **Zombie Detection:** Scans port stats (Wattage, Traffic, Speed).
@@ -19,7 +19,7 @@ The WatchDog operates in a three-stage pipeline:
     * **Output:** Generates `poe-stats-report.json`.
 
 3.  **`master.js`**
-    * **Brain:** Extracts a list of down switches and let the bot do its job.
+    * **Brain:** Extracts a list of down devices and let the bot do its job.
     * **Verification:** Re-runs the scan after resets to verify success.
     * **Notifications:** Sends a report to the Telegram Group.
 
@@ -35,8 +35,8 @@ This folder acts as the bot's "memory."
 The bot can be controlled via the Terminal or Telegram group chat. 
 | Command |  Action  
 |:-----|:--------:|
-| scan or status   | Audits the switches and send a report to Telegram group chat. | 
-| reset all   |  Resets every down switch found in the latest scan.|  
+| scan or status   | Audits the devices and send a report to Telegram group chat. | 
+| reset all   |  Resets every down device found in the latest scan.|  
 | reset [venue]   | (e.g., reset auburn) and only fixes that site. |  
 | ping or hi or are you online?  | Checks if the bot is online and listening. |  
 | done  | Safely shut down the manual session. | 
