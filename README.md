@@ -59,6 +59,8 @@ Create a `.env` file in the root directory and fill in the info. **Do not commit
 ```text
 NETGEAR_EMAIL=admin@isitemediagroup.com
 NETGEAR_PWD=your_secure_password
+PORTAL_EMAIL=admin@isitemediagroup.com
+PORTAL_PWD=your_secure_password
 
 # MFA Configuration
 # 1 = Ruben | 2 = Tu (Default)
