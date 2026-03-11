@@ -39,7 +39,7 @@ The bot can be controlled via the Terminal or Telegram group chat.
 | reset all   |  Resets every down switch found in the latest scan.|  
 | reset [venue]   | (e.g., reset auburn) and only fixes that site. |  
 | ping or hi or are you online?  | Checks if the bot is online and listening. |  
-
+| done  | Safely shut down the manual session. | 
 ---
 
 ### 🛠️ Setup & Execution
@@ -74,4 +74,20 @@ TELEGRAM_CHAT_ID=your_group_id
 #### **3. Run the Script**
 ```bash
 node master.js
+```
+
+#### **4. Run Headless/Pi**
+No monitor?
+* Use **Xvfb** to create a virtual screen in the Pi's memory.
+
+First, install dependencies:
+
+```bash
+sudo apt update && sudo apt install xvfb -y
+npx playwright install-deps
+```
+Run the script:
+
+```bash
+xvfb-run --auto-servernum node master.js
 ```

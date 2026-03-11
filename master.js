@@ -20,9 +20,20 @@ async function sendTelegram(message) {
     }
 }
 
+const COMMAND_MENU = `
+**Available Commands:**
+• \`scan\` - Full network audit
+• \`reset all\` - Reset every down switch
+• \`reset [venue]\` - Reset a specific site (e.g., \`reset mizzou\`)
+• \`status\` - Re-send the latest report
+• \`ping\` - Check if I'm awake
+
+_Simply type a command below to begin._`;
+
+
 // generate a report and send to telegram
 function generateReport() {
-    if (!fs.existsSync('down-switch-list.json')) return "No down-switch-list found. Run a scan first.";
+    if (!fs.existsSync('down-switch-list.json')) return "❓ No down-switch-list found. Run a scan first.";
 
     const data = JSON.parse(fs.readFileSync('down-switch-list.json', 'utf8'));
     let totalDown = 0;
@@ -42,6 +53,12 @@ function generateReport() {
 
     report += `\n**Total:** ${totalDown} switches down\n`;
     report += `**Timestamp:** ${time} (Chicago Time)\n`;
+
+    report += "----------------------------------\n";
+    report += "🚀 **What should we do next?**\n";
+    report += "• Type \`reset all\` to reset all of them.\n";
+    report += "• Type \`reset [venue]\` to target just one site.\n";
+    report += "• Type \`exit\` or \`done\` to shut down"; // Updated line
     return report;
 }
 
@@ -82,8 +99,27 @@ async function startResetting() {
     } catch (e) { console.error("⚠️ Initial flush failed, starting fresh."); }
 
     // ------------------------------------------
+function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning ☕";
+    if (hour < 17) return "Good afternoon ☀️";
+    return "Good evening 🌙";
+}
 
-    await sendTelegram("🤖 **WatchDog Online.** I'm listening for commands:")
+async function sendStartupMessage() {
+    const greeting = getGreeting();
+    const message = `
+${greeting}
+
+I am online and ready to reset these switches haha 🥹
+Let me know what I need to do:
+
+${COMMAND_MENU}`;
+
+    await sendTelegram(message);
+}
+
+    await sendStartupMessage();
 
 
     //terminal listener
@@ -96,20 +132,28 @@ async function startResetting() {
     async function handleCommand(text) {
         // 0, checking if it's online
         if (text === 'hi' || text === 'ping' || text === 'are you online' || text === 'online?' || text === 'are you online?' || text === 'online') {
-            await sendTelegram("👋 I'm online! Ready to slay some switches. 🦾");
+            await sendTelegram("👋 I'm online! I'm very happy, just tell me what to do 🥹🥹");
         }
+
+        // help menu
+        else if (text === 'help' || text === 'menu') {
+            await sendTelegram(COMMAND_MENU);
+        }
+
         // option 1: scan
-        if (text === 'scan' || text === 'status') {
-            await sendTelegram("🔎 Starting full network audit...");
+        else if (text === 'scan' || text === 'status') {
+            await sendTelegram("🔎 Pulling full network audit:");
             await runScript('sw-list.js');
             await sendTelegram(generateReport());
         }
+
         // option 2: reset all
         else if (text === 'reset all') {
             await sendTelegram("Starting FULL network reset cycle...");
             await runScript('swbot.js');
             await sendTelegram("✨ All down switches have been reset.");
         }
+
         // option 3: targeted reste
         else if (text.startsWith('reset ')) {
             const query = text.replace('reset ', '').trim();
@@ -125,10 +169,18 @@ async function startResetting() {
                 await sendTelegram(`⚠️ Multiple matches found:\n${options}\n\nPlease be more specific!`);
             } else {
                 const target = matches[0].venue;
-                await sendTelegram(`🎯 Target Acquired: **${target}**. Launching swbot...`);
+                await sendTelegram(`🎯 Target Acquired: **${target}**.\nSending Bot to Reset Switches.`);
                 await runScript('swbot.js', `"${target}"`);
                 await sendTelegram(`✅ Reset cycle for ${target} complete.`);
             }
+        }
+
+        // option 4: exit
+        else if (text === 'exit' || text === 'done' || text === 'stop') {
+            await sendTelegram("🫡 **I'm signing off.** Catch you on the next auto-scan!");
+            console.log("👋 Manual session ended by user. Exiting...");
+            rl.close(); 
+            process.exit(0);
         }
 
     }

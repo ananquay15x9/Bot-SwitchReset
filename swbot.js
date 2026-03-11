@@ -169,7 +169,7 @@ const venueMap = {
         // Send Telegram Prompt
         await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
             chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: `🚨 *iSite WatchDog:* MFA Code required for Netgear! \n\nPlease reply with the 6-digit code.`,
+            text: `🚨 MFA Code required for Netgear! \n\nPlease reply with the 6-digit code:`,
             parse_mode: 'Markdown'
         });
 

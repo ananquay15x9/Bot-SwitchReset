@@ -8,8 +8,9 @@ const fs = require('fs');
   // headless-friendly
   const browser = await chromium.launch({
   headless: process.env.NODE_ENV === 'production' ? true : false,
-  args: ['--no-sandbox']
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
 });
+  const context = await browser.newContext();
   const page = await browser.newPage();
 
   // let the bot login
@@ -18,6 +19,8 @@ const fs = require('fs');
   await page.getByRole('textbox', { name: 'Password' }).fill(process.env.PORTAL_PWD);
   await page.getByRole('button', { name: 'Sign In' }).click();
   await page.waitForURL('**/portal');
+
+  await page.waitForLoadState('networkidle');
 
   // venues with down switches
   const venues = await page.evaluate(() => {
@@ -41,8 +44,10 @@ const fs = require('fs');
   // pulling all switches data
   for (const venue of venues) {
     console.log(`Pulling ${venue.name}...`);
-    await page.goto(venue.url);
-    await page.waitForSelector('#sort_table tbody tr');
+    const cacheBuster = `${venue.url}${venue.url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    await page.goto(cacheBuster, { waitUntil: 'networkidle' });
+
+    await page.waitForSelector('#sort_table tbody tr', { timeout: 15000 });
 
     const switches = await page.evaluate(() => {
       const rows = Array.from(document.querySelectorAll('#sort_table tbody tr'));
