@@ -126,8 +126,8 @@ const venueMap = {
 
     const userDataDir = './netgear_session';
     const context = await chromium.launchPersistentContext(userDataDir, {
-        headless: false,
-        viewport: { width: 1280, height: 720 }
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page = await context.newPage();

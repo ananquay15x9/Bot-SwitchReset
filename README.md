@@ -57,6 +57,7 @@ npx playwright install chromium
 #### **2. Create .env File**
 Create a `.env` file in the root directory and fill in the info. **Do not commit this file.**
 ```text
+NODE_ENV=production
 NETGEAR_EMAIL=admin@isitemediagroup.com
 NETGEAR_PWD=your_secure_password
 PORTAL_EMAIL=admin@isitemediagroup.com
