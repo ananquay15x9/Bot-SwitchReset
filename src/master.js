@@ -325,6 +325,10 @@ if (process.argv.includes('--auto')) {
         await runScript('src/bots/swbot.js');
         process.exit(0); 
     })();
+} else if (process.argv.includes('--status')) {
+    //status 
+    console.log(generateReport());
+    process.exit(0);
 } else {
     setupScheduler(); 
     startResetting(); 
