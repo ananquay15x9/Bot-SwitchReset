@@ -29,39 +29,43 @@ const askTerminal = (query) => {
     }));
 };
 
+function getLogPath(dateObj = new Date()) {
+    const d = dateObj.toLocaleDateString("en-US", { timeZone: "America/Chicago" }).replace(/\//g, '-');
+    return path.join(path.join(__dirname, '../../logs'), `history-log-${d}.json`);
+}
+
 function updateHistory(venue, device, port) {
-    const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
-    const now = new Date().toLocaleTimeString("en-US", { hour12: false });
+    const todayPath = getLogPath();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayPath = getLogPath(yesterday);
 
-    let history = { date: today, timezone: "America/Chicago", outage_summary: {} };
-
-    if (fs.existsSync(HISTORY_FILE)) {
-        try {
-            const fileData = fs.readFileSync(HISTORY_FILE, 'utf8');
-            const data = fileData ? JSON.parse(fileData) : null;
-            if (data && data.date === today) {
-                history = data;
-            }
-        } catch (e) { console.error("⚠️ History file was corrupt, starting fresh."); }
+    let history = { outage_summary: {} };
+    if (fs.existsSync(todayPath)) {
+        history = JSON.parse(fs.readFileSync(todayPath, 'utf8'));
     }
 
-    if (!history.outage_summary) history.outage_summary = {};
+
+    let pastAttempts = 0;
+    if (fs.existsSync(yesterdayPath)) {
+        const yData = JSON.parse(fs.readFileSync(yesterdayPath, 'utf8'));
+        pastAttempts = yData.outage_summary?.[venue]?.[device]?.attempt_count || 0;
+    }
+
     if (!history.outage_summary[venue]) history.outage_summary[venue] = {};
-    
     if (!history.outage_summary[venue][device]) {
-        history.outage_summary[venue][device] = {
-            port: port || "NA",
-            attempt_count: 0
-        };
+        history.outage_summary[venue][device] = { port: port || "NA", attempt_count: 0 };
     }
 
     const deviceStats = history.outage_summary[venue][device];
     deviceStats.attempt_count += 1;
-    deviceStats.last_reset = now;
-    if (deviceStats.attempt_count >= 6) deviceStats.status = "MARK_DEAD";
+    deviceStats.last_reset = new Date().toLocaleTimeString("en-US", { hour12: false });
 
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
-    return deviceStats.attempt_count;
+    const trueTotal = deviceStats.attempt_count + pastAttempts;
+    if (trueTotal >= 6) deviceStats.status = "MARK_DEAD";
+
+    fs.writeFileSync(todayPath, JSON.stringify(history, null, 2));
+    return trueTotal; 
 }
 
 //login remotely
@@ -216,13 +220,13 @@ const venueMap = {
         await page.click('button:has-text("Continue")');
 
         // Send Telegram Prompt
-        await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-            chat_id: process.env.TELEGRAM_CHAT_ID,
+        await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TEST_TOKEN}/sendMessage`, {
+            chat_id: process.env.TELEGRAM_TEST_ID,
             text: `🚨 MFA Code required for Netgear! \n\nPlease reply with the 6-digit code:`,
             parse_mode: 'Markdown'
         });
 
-        const mfaCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
+        const mfaCode = await getMFACode(process.env.TELEGRAM_TEST_TOKEN, process.env.TELEGRAM_TEST_ID);
         const otpInput = page.locator('input.otp-input').first();
         await otpInput.waitFor({ state: 'visible', timeout: 15000 });
 
@@ -433,49 +437,42 @@ const venueMap = {
                     // PHASE 1: RUN PoE Reset at 8AM
                     if (isMorningShift && targetsToReset.length > 0) {
                         try {
-                            const isActuallyDead = stats.some(p => targetsToReset.includes(p.port) && parseFloat(p.power) < 1.5);
+                            console.log(`🔌 MORNING SHIFT: Running PoE Reset for targets (Attempt ${attemptNum})`);
 
-                            if (!isActuallyDead) {
-                                console.log(" Port looks powered. SKipping PoE Toggle to protect hardware; moving to Power Cycle.")
-                            } else {
-                                console.log(`🔌 MORNING SHIFT: Running PoE Reset (Attempt ${attemptNum})`);
+                            const firstPort = targetsToReset[0];
+                            await page.locator('.ethernet-count', { hasText: new RegExp(`^${firstPort}$`) }).first().click();
+                            await page.waitForURL('**/portConfiq/summary');
 
+                            // setting -> batch config
+                            await page.click('a[href*="/portConfiq/settings"]');
+                            await page.click('#btnModlSettng'); // "Batch port configuration"
 
-                                const firstPort = targetsToReset[0];
-                                await page.locator('.ethernet-count', { hasText: new RegExp(`^${firstPort}$`) }).first().click();
-                                await page.waitForURL('**/portConfiq/summary');
+                            // click modal
+                            const batchWarningYes = page.locator('#btnBatchOfSett'); // "Yes, open batch config."
+                            await batchWarningYes.waitFor({ state: 'visible', timeout: 5000 });
+                            await batchWarningYes.click();
 
-                                // setting -> batch config
-                                await page.click('a[href*="/portConfiq/settings"]');
-                                await page.click('#btnModlSettng'); // "Batch port configuration"
-                                
-                                // click modal
-                                const batchWarningYes = page.locator('#btnBatchOfSett'); // "Yes, open batch config."
-                                await batchWarningYes.waitFor({ state: 'visible', timeout: 5000 });
-                                await batchWarningYes.click();
+                            // select ports
+                            for (const portNum of targetsToReset) {
+                                await page.locator(`#port_${portNum}`).click();
+                            }
 
-                                // select ports
-                                for (const portNum of targetsToReset) {
-                                    await page.locator(`#port_${portNum}`).click();
-                                }
+                            await page.click('#hNsaAccordHeadSettng');
 
-                                await page.click('#hNsaAccordHeadSettng');
+                            // toggle off
+                            await togglePoE(page, targetsToReset, false);           
+                            console.log("⏱️ Waiting 20s");
+                            await page.waitForTimeout(20000);
 
-                                // toggle off
-                                await togglePoE(page, targetsToReset, false);           
-                                console.log("⏱️ Waiting 20s");
-                                await page.waitForTimeout(20000);
+                            // toggle on
+                            await togglePoE(page, targetsToReset, true);
+                            console.log("🎉 PHASE 1 complete.\n");
+                            await page.waitForTimeout(5000);
 
-                                // toggle on
-                                await togglePoE(page, targetsToReset, true);
-                                console.log("🎉 PHASE 1 complete.\n");
-                                await page.waitForTimeout(5000);
-
-                                } 
-                            }   catch (err) {
-                                console.log(`❌ Resetting interrupted: ${err.message}`);
-                        }
+                        }   catch (err) {
+                            console.log(`❌ Phase 1 failed: ${err.message}`);
                     }
+                }
 
                     // PHASE 2: Power Cycle (Run 1x for 8am, 2pm, 7pm)
                     try{

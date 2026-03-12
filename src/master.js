@@ -5,8 +5,8 @@ const axios = require('axios');
 const readline = require('readline');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const TG_TOKEN = process.env.TELEGRAM_TOKEN;
-const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TG_TOKEN = process.env.TELEGRAM_TEST_TOKEN;
+const TG_CHAT_ID = process.env.TELEGRAM_TEST_ID;
 
 const LOGS_DIR = path.join(__dirname, '../logs');
 const REPORTS_DIR = path.join(LOGS_DIR, 'reports');
@@ -15,22 +15,19 @@ const HISTORY_FILE = path.join(LOGS_DIR, 'history-log.json');
 
 if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 
+function getLogPath(dateObj = new Date()) {
+    const d = dateObj.toLocaleDateString("en-US", { timeZone: "America/Chicago" }).replace(/\//g, '-');
+    return path.join(LOGS_DIR, `history-log-${d}.json`);
+}
+
 function getHistory() {
+    const historyPath = getLogPath();
     const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
     const defaultHistory = { date: today, timezone: "America/Chicago", outage_summary: {} };
 
     try {
-        if (!fs.existsSync(HISTORY_FILE)) {
-            fs.writeFileSync(HISTORY_FILE, JSON.stringify(defaultHistory, null, 2));
-            return defaultHistory;
-        }
-        const data = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
-        if (data.date !== today) {
-            fs.writeFileSync(HISTORY_FILE, JSON.stringify(defaultHistory, null, 2));
-            return defaultHistory;
-        }
-        if (!data.outage_summary) data.outage_summary = {};
-        return data;
+        if (!fs.existsSync(historyPath)) return defaultHistory;
+        return JSON.parse(fs.readFileSync(historyPath, 'utf8'));
     } catch (e) {
         return defaultHistory;
     }
@@ -54,7 +51,7 @@ function updateHistory(venue, device, port) {
     deviceStats.attempt_count += 1;
     deviceStats.last_reset = new Date().toLocaleTimeString("en-US", { hour12: false });
 
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+    fs.writeFileSync(getLogPath(), JSON.stringify(history, null, 2));
     return deviceStats.attempt_count;
 }
 
@@ -72,12 +69,13 @@ async function sendTelegram(message) {
 }
 
 const COMMAND_MENU = `
-**Available Commands:**
+**👇 Available Commands:**
 • \`scan\` - Full network audit
 • \`reset all\` - Reset every down device
 • \`reset [venue]\` - Reset a specific site (e.g., \`reset mizzou\`)
 • \`status\` - Re-send the latest report
 • \`ping\` - Check if I'm awake
+• \`show dead\` - Show dead devices
 
 _Simply type a command below to begin._`;
 
@@ -132,8 +130,38 @@ function generateReport() {
     footer += "🚀 **What should we do next?**\n";
     footer += "• Type \`reset all\` to reset all of them.\n";
     footer += "• Type \`reset [venue]\` to target just one site.\n";
+    footer += "• Type \`show dead\` to show dead devices.\n";
     footer += "• Type \`exit\` or \`done\` to shut down"; // Updated line
     return header + reportBody + footer;
+}
+
+function generateDeadReport() {
+    const todayPath = getLogPath();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayPath = getLogPath(yesterday);
+
+    let deadBody = "";
+    let deadCount = 0;
+
+    const processFile = (filePath, label) => {
+        if (!fs.existsSync(filePath)) return;
+        const history = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        for (const [venue, devices] of Object.entries(history.outage_summary)) {
+            for (const [device, stats] of Object.entries(devices)) {
+                if (stats.status === "MARK_DEAD" || stats.attempt_count >= 6) {
+                    deadBody += `      ┗ 💀 [${label}] ${device} (Port ${stats.port}) - Attempts: ${stats.attempt_count}\n`;
+                    deadCount++;
+                }
+            }
+        }
+    };
+
+    processFile(yesterdayPath, "YESTERDAY");
+    processFile(todayPath, "TODAY");
+
+    if (deadCount === 0) return "✅ No persistent failures in the last 48 hours.";
+    return `💀 **Persistent Failures (MARK DEAD)**\n\n${deadBody}\nTotal: ${deadCount} devices require manual repair.`;
 }
 
 // command option to choose
@@ -275,6 +303,12 @@ ${COMMAND_MENU}`;
             process.exit(0);
         }
 
+        // option 5: show dead devices
+        else if (text === 'dead' || text === 'show dead' || text === 'skip') {
+            await sendTelegram("💀 **Generating Dead Devices**");
+            await sendTelegram(generateDeadReport());
+}
+
     }
 
     while (true) {
@@ -314,19 +348,7 @@ function setupScheduler() {
             await sendTelegram(generateReport());
         });
     });
-
-    // add history reset
-    schedule.scheduleJob('0 0 * * *', () => {
-        console.log("🕛 Midnight: Resetting history-log.json for the new day.");
-        const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
-        const freshHistory = {
-            date: today,
-            timezone: "America/Chicago",
-            outage_summary: {}
-        };
-        fs.writeFileSync(HISTORY_FILE, JSON.stringify(freshHistory, null, 2));
-    });
-    console.log("📅 Scheduler active: 8:00 AM, 2:00 PM, 7:00 PM + Midnight Reset.");
+    console.log("📅 Scheduler active: 8:00 AM, 2:00 PM, 7:00 PM.");
 }
 
 
