@@ -220,13 +220,13 @@ const venueMap = {
         await page.click('button:has-text("Continue")');
 
         // Send Telegram Prompt
-        await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TEST_TOKEN}/sendMessage`, {
-            chat_id: process.env.TELEGRAM_TEST_ID,
+        await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+            chat_id: process.env.TELEGRAM_CHAT_ID,
             text: `🚨 MFA Code required for Netgear! \n\nPlease reply with the 6-digit code:`,
             parse_mode: 'Markdown'
         });
 
-        const mfaCode = await getMFACode(process.env.TELEGRAM_TEST_TOKEN, process.env.TELEGRAM_TEST_ID);
+        const mfaCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
         const otpInput = page.locator('input.otp-input').first();
         await otpInput.waitFor({ state: 'visible', timeout: 15000 });
 
