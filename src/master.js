@@ -314,7 +314,19 @@ function setupScheduler() {
             await sendTelegram(generateReport());
         });
     });
-    console.log("📅 Scheduler active: 8:00 AM, 2:00 PM, 7:00 PM shifts locked in.");
+
+    // add history reset
+    schedule.scheduleJob('0 0 * * *', () => {
+        console.log("🕛 Midnight: Resetting history-log.json for the new day.");
+        const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
+        const freshHistory = {
+            date: today,
+            timezone: "America/Chicago",
+            outage_summary: {}
+        };
+        fs.writeFileSync(HISTORY_FILE, JSON.stringify(freshHistory, null, 2));
+    });
+    console.log("📅 Scheduler active: 8:00 AM, 2:00 PM, 7:00 PM + Midnight Reset.");
 }
 
 
