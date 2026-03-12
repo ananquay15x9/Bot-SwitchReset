@@ -5,3 +5,8 @@ netgear_session/
 node_modules/
 *.log
 test.js
+backupMaster.js
+testMaster.js
+testBot.js
+history-log.json
+down-devices-list.json

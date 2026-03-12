@@ -2,10 +2,24 @@
 
 const { chromium } = require('playwright');
 const fs = require('fs');
-const path = require("path");
+const path = require('path');
 const readline = require('readline');
 const axios = require('axios');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+
+// file structure
+const LOGS_DIR = path.join(__dirname, '../../logs');
+const REPORTS_DIR = path.join(LOGS_DIR, 'reports');
+const SESSION_DIR = path.join(__dirname, '../../netgear_session');
+
+const HISTORY_FILE = path.join(LOGS_DIR, 'history-log.json');
+const SCAN_FILE = path.join(LOGS_DIR, 'down-devices-list.json');
+const CSV_FILE = path.join(__dirname, '../../data/all-switch-list.csv');
+const REPORT_FILE = path.join(REPORTS_DIR, 'poe-stats-report.json');
+
+if (!fs.existsSync(path.join(LOGS_DIR, 'reports'))) {
+    fs.mkdirSync(path.join(LOGS_DIR, 'reports'), { recursive: true });
+}
 
 const askTerminal = (query) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -16,7 +30,6 @@ const askTerminal = (query) => {
 };
 
 function updateHistory(venue, device, port) {
-    const HISTORY_FILE = 'history-log.json';
     const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
     const now = new Date().toLocaleTimeString("en-US", { hour12: false });
 
@@ -136,17 +149,6 @@ const venueMap = {
     // mapping
     const serialToNetgear = {};
     const venueGroupToNetgear = {};
-    const LOGS_DIR = path.join(__dirname, 'logs');
-    const REPORTS_DIR = path.join(LOGS_DIR, 'reports');
-    const SESSION_DIR = path.join(__dirname, 'netgear_session');
-    const CSV_FILE = path.join(__dirname, 'data/all-switch-list.csv');
-    const SCAN_FILE = path.join(LOGS_DIR, 'down-devices-list.json');
-    const REPORT_FILE = path.join(REPORTS_DIR, 'poe-stats-report.json');
-
-    if (!fs.existsSync(REPORTS_DIR)) {
-        fs.mkdirSync(REPORTS_DIR, { recursive: true });
-    }
-
     try {
         if (fs.existsSync(CSV_FILE)) {
             const csvContent = fs.readFileSync(CSV_FILE, 'utf8');
@@ -510,7 +512,7 @@ const venueMap = {
         }
     }
     fs.writeFileSync(REPORT_FILE, JSON.stringify(poeReport, null, 2));
-    console.log("\n✨ Reset Complete! Check logs/reports/poe-stats-report.json.");
+    console.log("\n✨ Reset Complete! Check logs/reports/.");
 
     await context.close();
     process.exit(0);

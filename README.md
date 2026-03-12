@@ -1,4 +1,4 @@
-### iSite Switch Bot
+### iSite Switch Reset Bot (v2.0)
 The bot analyzes power draw (wattage) and traffic stats to identify frozen units that appear to have power but are frozen and not communicating.
 
 The system is built to run 3 times daily, ensuring that hardware outages are "canceled" before they affect venue operations.
@@ -73,7 +73,7 @@ TELEGRAM_CHAT_ID=your_group_id
 ```
 #### **3. Run the Script**
 ```bash
-node master.js
+node src/master.js
 ```
 
 #### **4. Run Headless/Pi**
@@ -89,5 +89,10 @@ npx playwright install-deps
 Run the script:
 
 ```bash
-xvfb-run --auto-servernum node master.js
+xvfb-run --auto-servernum node src/master.js
 ```
+#### **5. Manual Workflow**
+If running manually, follow this sequence:
+1. Scan: **node src/scanner/sw-list.js** (Output logs\down-device-list.json)
+2. Reset: **node src/bots/swbot.js** (Perform the power cycle)
+3. Master: **node src/master.js** (Starts the Telegram listener and scheduler)

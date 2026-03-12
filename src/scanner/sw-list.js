@@ -1,8 +1,14 @@
 // first run this script to get all the down switches in the list
 
 const { chromium } = require('playwright');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const fs = require('fs');
+
+const LOGS_DIR = path.join(__dirname, '../../logs');
+const SCAN_FILE = path.join(LOGS_DIR, 'down-devices-list.json');
+
+if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 
 (async () => {
   // headless-friendly
@@ -61,11 +67,11 @@ const fs = require('fs');
         const portRaw = cells[3]?.innerText.trim() || "";
         const group = cells[5]?.innerText.trim() || "";
 
-        const portMatch = portRaw.match(/\d+/);
+        const portMatch = portRaw.match(/Port\s+(\d+)/i);
         
         return {
           serial: piSerial,
-          port: portMatch ? portMatch[0] : "N/A",
+          port: portMatch ? portMatch[1] : "N/A",
           location: location,
           group: group
         };
@@ -79,8 +85,8 @@ const fs = require('fs');
   }
 
   // write to json
-  fs.writeFileSync('down-devices-list.json', JSON.stringify(finalOutput, null, 2));
-  console.log("Please check 'down-devices-list.json' 🥲" );
+  fs.writeFileSync(SCAN_FILE, JSON.stringify(finalOutput, null, 2));
+  console.log("DOWN DEVICES in logs/down-devices-list.json 🥲" );
 
   await browser.close();
 })();
