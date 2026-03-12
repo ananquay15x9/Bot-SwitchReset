@@ -41,6 +41,12 @@ The bot can be controlled via the Terminal or Telegram group chat.
 | ping or hi or are you online?  | Checks if the bot is online and listening. |  
 | done  | Safely shut down the manual session. | 
 ---
+### ⏲️ Operational Logic
+The bot differentiates between "PoE Resets" and "Power Cycles" based on the time of day:
+
+* **Morning (8:00):** Performs a full **PoE Toggle** (Off -> 20s Wait -> On) followed by a **Power Cycle**.
+* **Afternoon/Evening:** Performs ONLY a **Power Cycle** to refresh the device without a full switch-level power cut.
+* **Max Attempts:** If a device fails to check in after **6 attempts** in a single day, it is marked as `DEAD` in `history-log.json` and skipped to prevent hardware damage.
 
 ### 🛠️ Setup & Execution
 
