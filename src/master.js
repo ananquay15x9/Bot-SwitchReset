@@ -5,8 +5,8 @@ const axios = require('axios');
 const readline = require('readline');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const TG_TOKEN = process.env.TELEGRAM_TOKEN;
-const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TG_TOKEN = process.env.TELEGRAM_TEST_TOKEN;
+const TG_CHAT_ID = process.env.TELEGRAM_TEST_ID;
 
 const LOGS_DIR = path.join(__dirname, '../logs');
 const REPORTS_DIR = path.join(LOGS_DIR, 'reports');
