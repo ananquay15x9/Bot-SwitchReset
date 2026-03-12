@@ -352,31 +352,45 @@ const venueMap = {
                         if (p1 && p2) {
                             const power1 = parseFloat(p1.power);
                             const power2 = parseFloat(p2.power);
-                            const hasTraffic = parseInt(p1.traffic) > 0 || parseInt(p2.traffic) > 0;
-                            const hasLink = p1.speed.toLowerCase().includes('full') || p2.speed.toLowerCase().includes('full');
+                            const traffic1 = parseInt(p1.traffic) || 0;
+                            const traffic2 = parseInt(p2.traffic) || 0;
+
+                            console.log(`📊 Pair Stats [${portTop}/${portBottom}]: ${power1}W | ${power2}W (Traffic: ${traffic1}/${traffic2})`);
 
                             // check if it is healthy
-                            if (hasTraffic || hasLink) {
-                                console.log(`✅ Unit ${unitNumber} appears healthy (Traffic/Link detected). Skipping.`);
-                            } else {
-                                // so reset one or both ports?
-                                const p1IsPi = power1 > 2.0;
-                                const p2IsPi = power2 > 2.0;
+                            // identify the "Pi-like" power range (2.9W to 5.5W)
+                            const p1InPiRange = (power1 >= 2.5 && power1 <= 5.8);
+                            const p2InPiRange = (power2 >= 2.5 && power2 <= 5.8);
+                            const p1IsScreen = (power1 > 10);
+                            const p2IsScreen = (power2 > 10);
 
-                                if (p1IsPi && !p2IsPi) {
-                                    console.log(`🥧 Port ${portTop} is the clear Pi. Resetting only ${portTop}.`);
-                                    targetsToReset.push(p1.port);
-                                } else if (!p1IsPi && p2IsPi) {
-                                    console.log(`🥧 Port ${portBottom} is the clear Pi. Resetting only ${portBottom}.`);
-                                    targetsToReset.push(p2.port);
-                                } else {
-                                    console.log(`❓ Ambiguous pair (Both ${power1}W/${power2}W). Resetting BOTH ${portTop} & ${portBottom}.`);
-                                    targetsToReset.push(p1.port, p2.port);
-                                }
+                            if (p1InPiRange && !p2InPiRange) {
+                                console.log(`🥧 Port ${portTop} matches Pi wattage profile. Targeting ${portTop}.`);
+                                targetsToReset.push(p1.port);
+                            }
+                            else if (!p1InPiRange && p2InPiRange) {
+                                console.log(`🥧 Port ${portBottom} matches Pi wattage profile. Targeting ${portBottom}.`);
+                                targetsToReset.push(p2.port);
+                            }
+                            else if (p1IsScreen && p2IsScreen) {
+                                // both 16W/13W" scenario: Reset both but ONLY Power Cycle
+                                console.log(`📺 Dual high-wattage detected (${power1}W/${power2}W). Resetting BOTH.`);
+                                targetsToReset.push(p1.port, p2.port);
+                            }
+                            else if (p1IsScreen || p2IsScreen) {
+                                // if high-draw like crazy number
+                                const target = p1IsScreen ? p2.port : p1.port;
+                                console.log(`📺 Detected Screen at ${p1IsScreen ? power1 : power2}W. Targeting the OTHER port (${target}).`);
+                                targetsToReset.push(target);
+                            } else {
+                                // too healthy to distinguish?
+                                console.log(`❓ Ambiguous pair (Both ${power1}W/${power2}W). Resetting BOTH ${portTop} & ${portBottom}.`);
+                                targetsToReset.push(p1.port, p2.port);
                             }
                         }
                     }
                 }
+            
 
                 // FUNCTION TOGGLE
                 async function togglePoE(page, targets, targetState) {
@@ -419,41 +433,47 @@ const venueMap = {
                     // PHASE 1: RUN PoE Reset at 8AM
                     if (isMorningShift && targetsToReset.length > 0) {
                         try {
-                            console.log(`🔌 MORNING SHIFT: Running PoE Reset (Attempt ${attemptNum})`);
-                            
+                            const isActuallyDead = stats.some(p => targetsToReset.includes(p.port) && parseFloat(p.power) < 1.5);
 
-                            const firstPort = targetsToReset[0];
-                            await page.locator('.ethernet-count', { hasText: new RegExp(`^${firstPort}$`) }).first().click();
-                            await page.waitForURL('**/portConfiq/summary');
+                            if (!isActuallyDead) {
+                                console.log(" Port looks powered. SKipping PoE Toggle to protect hardware; moving to Power Cycle.")
+                            } else {
+                                console.log(`🔌 MORNING SHIFT: Running PoE Reset (Attempt ${attemptNum})`);
 
-                            // setting -> batch config
-                            await page.click('a[href*="/portConfiq/settings"]');
-                            await page.click('#btnModlSettng'); // "Batch port configuration"
-                            
-                            // click modal
-                            const batchWarningYes = page.locator('#btnBatchOfSett'); // "Yes, open batch config."
-                            await batchWarningYes.waitFor({ state: 'visible', timeout: 5000 });
-                            await batchWarningYes.click();
 
-                            // select ports
-                            for (const portNum of targetsToReset) {
-                                await page.locator(`#port_${portNum}`).click();
-                            }
+                                const firstPort = targetsToReset[0];
+                                await page.locator('.ethernet-count', { hasText: new RegExp(`^${firstPort}$`) }).first().click();
+                                await page.waitForURL('**/portConfiq/summary');
 
-                            await page.click('#hNsaAccordHeadSettng');
+                                // setting -> batch config
+                                await page.click('a[href*="/portConfiq/settings"]');
+                                await page.click('#btnModlSettng'); // "Batch port configuration"
+                                
+                                // click modal
+                                const batchWarningYes = page.locator('#btnBatchOfSett'); // "Yes, open batch config."
+                                await batchWarningYes.waitFor({ state: 'visible', timeout: 5000 });
+                                await batchWarningYes.click();
 
-                            // toggle off
-                            await togglePoE(page, targetsToReset, false);           
-                            console.log("⏱️ Waiting 20s");
-                            await page.waitForTimeout(20000);
+                                // select ports
+                                for (const portNum of targetsToReset) {
+                                    await page.locator(`#port_${portNum}`).click();
+                                }
 
-                            // toggle on
-                            await togglePoE(page, targetsToReset, true);
-                            console.log("🎉 PHASE 1 complete.\n");
-                            await page.waitForTimeout(5000);
+                                await page.click('#hNsaAccordHeadSettng');
 
-                        } catch (err) {
-                            console.log(`❌ Resetting interrupted: ${err.message}`);
+                                // toggle off
+                                await togglePoE(page, targetsToReset, false);           
+                                console.log("⏱️ Waiting 20s");
+                                await page.waitForTimeout(20000);
+
+                                // toggle on
+                                await togglePoE(page, targetsToReset, true);
+                                console.log("🎉 PHASE 1 complete.\n");
+                                await page.waitForTimeout(5000);
+
+                                } 
+                            }   catch (err) {
+                                console.log(`❌ Resetting interrupted: ${err.message}`);
                         }
                     }
 
