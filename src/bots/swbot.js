@@ -36,36 +36,46 @@ function getLogPath(dateObj = new Date()) {
 
 function updateHistory(venue, device, port) {
     const todayPath = getLogPath();
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayPath = getLogPath(yesterday);
+    const LOGS_FOLDER = path.join(__dirname, '../../logs');
 
     let history = { outage_summary: {} };
     if (fs.existsSync(todayPath)) {
         history = JSON.parse(fs.readFileSync(todayPath, 'utf8'));
     }
 
+    // just add up all the count/ remove the reset part
+    let totalPreviousAttempts = 0;
+    if (fs.existsSync(LOGS_FOLDER)) {
+        const allFiles = fs.readdirSync(LOGS_FOLDER);
+        // find history-log and ends with .json
+        const historyFiles = allFiles.filter(f => f.startsWith('history-log-') && f.endsWith('.json'));
 
-    let pastAttempts = 0;
-    if (fs.existsSync(yesterdayPath)) {
-        const yData = JSON.parse(fs.readFileSync(yesterdayPath, 'utf8'));
-        pastAttempts = yData.outage_summary?.[venue]?.[device]?.attempt_count || 0;
+        historyFiles.forEach(file => {
+            const fullPath = path.join(LOGS_FOLDER, file);
+            if (fullPath === todayPath) return;
+
+            try {
+                const fileData = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+                totalPreviousAttempts += fileData.outage_summary?.[venue]?.[device]?.attempt_count || 0;
+            } catch (e) { }
+        });
     }
 
     if (!history.outage_summary[venue]) history.outage_summary[venue] = {};
-    if (!history.outage_summary[venue][device]) {
-        history.outage_summary[venue][device] = { port: port || "NA", attempt_count: 0 };
+    const newCount = totalPreviousAttempts + 1;
+
+    history.outage_summary[venue][device] = {
+        port: port || "NA",
+        attempt_count: newCount,
+        last_reset: new Date().toLocaleTimeString("en-US", { hour12: false })
+    };
+
+    if (newCount >= 6) {
+        history.outage_summary[venue][device].status = "MARK_DEAD";
     }
 
-    const deviceStats = history.outage_summary[venue][device];
-    deviceStats.attempt_count += 1;
-    deviceStats.last_reset = new Date().toLocaleTimeString("en-US", { hour12: false });
-
-    const trueTotal = deviceStats.attempt_count + pastAttempts;
-    if (trueTotal >= 6) deviceStats.status = "MARK_DEAD";
-
     fs.writeFileSync(todayPath, JSON.stringify(history, null, 2));
-    return trueTotal; 
+    return newCount; 
 }
 
 //login remotely

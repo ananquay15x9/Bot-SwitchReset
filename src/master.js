@@ -21,39 +21,43 @@ function getLogPath(dateObj = new Date()) {
 }
 
 function getHistory() {
-    const historyPath = getLogPath();
+    const LOGS_FOLDER = path.join(__dirname, '../logs');
     const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" });
-    const defaultHistory = { date: today, timezone: "America/Chicago", outage_summary: {} };
+    const globalHistory = { date: today, timezone: "America/Chicago", outage_summary: {} };
 
-    try {
-        if (!fs.existsSync(historyPath)) return defaultHistory;
-        return JSON.parse(fs.readFileSync(historyPath, 'utf8'));
-    } catch (e) {
-        return defaultHistory;
-    }
+    if (!fs.existsSync(LOGS_FOLDER)) return globalHistory;
+
+
+    const allFiles = fs.readdirSync(LOGS_FOLDER);
+    const historyFiles = allFiles.filter(f => f.startsWith('history-log-') && f.endsWith('.json'));
+
+    historyFiles.forEach(file => {
+        try {
+            const fileData = JSON.parse(fs.readFileSync(path.join(LOGS_FOLDER, file), 'utf8'));
+            for (const [venue, devices] of Object.entries(fileData.outage_summary || {})) {
+                if (!globalHistory.outage_summary[venue]) globalHistory.outage_summary[venue] = {};
+                
+                for (const [device, stats] of Object.entries(devices)) {                 
+                    if (!globalHistory.outage_summary[venue][device]) {
+                  
+                        globalHistory.outage_summary[venue][device] = { ...stats };
+                    } else {
+                        
+                        globalHistory.outage_summary[venue][device].attempt_count += stats.attempt_count;
+                        
+                        
+                        globalHistory.outage_summary[venue][device].last_reset = stats.last_reset;
+                        globalHistory.outage_summary[venue][device].port = stats.port;
+                    }
+                }
+            }
+        } catch (e) { /* skip corrupt files */ }
+    });
+
+    return globalHistory;
 }
 
 
-function updateHistory(venue, device, port) {
-    const history = getHistory();
-    
-    if (!history.outage_summary) history.outage_summary = {};
-    if (!history.outage_summary[venue]) history.outage_summary[venue] = {};
-    
-    if (!history.outage_summary[venue][device]) {
-        history.outage_summary[venue][device] = {
-            port: port || "NA",
-            attempt_count: 0
-        };
-    }
-
-    const deviceStats = history.outage_summary[venue][device];
-    deviceStats.attempt_count += 1;
-    deviceStats.last_reset = new Date().toLocaleTimeString("en-US", { hour12: false });
-
-    fs.writeFileSync(getLogPath(), JSON.stringify(history, null, 2));
-    return deviceStats.attempt_count;
-}
 
 async function sendTelegram(message) {
     const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
@@ -99,17 +103,19 @@ function generateReport() {
             const count = deviceStats ? deviceStats.attempt_count : 0;
             
             // format attempt string
-            let attStr = count === 0 ? "Zero attempt" : 
-                         count === 1 ? "1st attempt" : 
-                         count === 2 ? "2nd attempt" : 
-                         count === 3 ? "3rd attempt" : `${count}th attempt`;
-            
-            const status = count >= 6 ? "💀 [MARK DEAD]" : `(${attStr})`;
+            const getOrdinal = (n) => {
+            const s = [""];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        };
+
+            let attStr = count === 0 ? "Zero attempts" : `Total Attempts: ${getOrdinal(count)}`;
+
             const safeLoc = sw.location.replace(/[_*]/g, ' ');
             const portDisplay = (sw.port === "N/A" || !sw.port) ? "NA" : sw.port;
 
             // indent device line
-            reportBody += `      ┗ ${safeLoc} - Port ${portDisplay} ${status}\n`;
+            reportBody += `      ┗ ${safeLoc} - Port ${portDisplay} - ${attStr}\n`;
             totalDown++;
         });
         reportBody += `\n`; 
@@ -136,32 +142,32 @@ function generateReport() {
 }
 
 function generateDeadReport() {
-    const todayPath = getLogPath();
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayPath = getLogPath(yesterday);
-
-    let deadBody = "";
+    const history = getHistory();
     let deadCount = 0;
+    const groupedDead = {};
 
-    const processFile = (filePath, label) => {
-        if (!fs.existsSync(filePath)) return;
-        const history = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        for (const [venue, devices] of Object.entries(history.outage_summary)) {
-            for (const [device, stats] of Object.entries(devices)) {
-                if (stats.status === "MARK_DEAD" || stats.attempt_count >= 6) {
-                    deadBody += `      ┗ 💀 [${label}] ${device} (Port ${stats.port}) - Attempts: ${stats.attempt_count}\n`;
-                    deadCount++;
-                }
+    for (const [venue, devices] of Object.entries(history.outage_summary)) {
+        for (const [device, stats] of Object.entries(devices)) {
+            if (stats.attempt_count >= 6) {
+                const safeVenue = venue.replace(/_/g, ' ');
+                if (!groupedDead[safeVenue]) groupedDead[safeVenue] = [];
+
+                groupedDead[safeVenue].push(
+                    `      ┗ 💀 ${device} (Port ${stats.port}) - Total Attempts: ${stats.attempt_count}`
+                );
+                deadCount++;
             }
         }
-    };
+    }
 
-    processFile(yesterdayPath, "YESTERDAY");
-    processFile(todayPath, "TODAY");
+    if (deadCount === 0) return "✅ No persistent failures detected yet.";
 
-    if (deadCount === 0) return "✅ No persistent failures in the last 48 hours.";
-    return `💀 **Persistent Failures (MARK DEAD)**\n\n${deadBody}\nTotal: ${deadCount} devices require manual repair.`;
+    let deadBody = "";
+    for (const [venue, devices] of Object.entries(groupedDead)) {
+        deadBody += `👎 **${venue}**\n${devices.join('\n')}\n\n`;
+    }
+
+    return `💀 **Persistent Failures (Global Summary)**\n\n${deadBody}Total: ${deadCount} devices require manual repair.`;
 }
 
 // command option to choose
