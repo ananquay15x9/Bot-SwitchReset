@@ -36,33 +36,16 @@ function getLogPath(dateObj = new Date()) {
 
 function updateHistory(venue, device, port) {
     const todayPath = getLogPath();
-    const LOGS_FOLDER = path.join(__dirname, '../../logs');
-
     let history = { outage_summary: {} };
+
     if (fs.existsSync(todayPath)) {
         history = JSON.parse(fs.readFileSync(todayPath, 'utf8'));
     }
 
-    // just add up all the count/ remove the reset part
-    let totalPreviousAttempts = 0;
-    if (fs.existsSync(LOGS_FOLDER)) {
-        const allFiles = fs.readdirSync(LOGS_FOLDER);
-        // find history-log and ends with .json
-        const historyFiles = allFiles.filter(f => f.startsWith('history-log-') && f.endsWith('.json'));
-
-        historyFiles.forEach(file => {
-            const fullPath = path.join(LOGS_FOLDER, file);
-            if (fullPath === todayPath) return;
-
-            try {
-                const fileData = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
-                totalPreviousAttempts += fileData.outage_summary?.[venue]?.[device]?.attempt_count || 0;
-            } catch (e) { }
-        });
-    }
-
     if (!history.outage_summary[venue]) history.outage_summary[venue] = {};
-    const newCount = totalPreviousAttempts + 1;
+
+    const currentCount = history.outage_summary[venue][device]?.attempt_count || 0;
+    const newCount = currentCount + 1;
 
     history.outage_summary[venue][device] = {
         port: port || "NA",
@@ -70,10 +53,7 @@ function updateHistory(venue, device, port) {
         last_reset: new Date().toLocaleTimeString("en-US", { hour12: false })
     };
 
-    if (newCount >= 6) {
-        history.outage_summary[venue][device].status = "MARK_DEAD";
-    }
-
+    // do not mark dead in the history logs file
     fs.writeFileSync(todayPath, JSON.stringify(history, null, 2));
     return newCount; 
 }
