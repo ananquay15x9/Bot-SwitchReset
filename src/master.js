@@ -28,8 +28,10 @@ function getHistory() {
     if (!fs.existsSync(LOGS_FOLDER)) return globalHistory;
 
 
-    const allFiles = fs.readdirSync(LOGS_FOLDER);
-    
+    const allFiles = fs.readdirSync(LOGS_FOLDER)
+        .filter(f => f.startsWith('history-log-') && f.endsWith('.json'))
+        .sort(); 
+
     allFiles.forEach(file => {
         try {
             const fileData = JSON.parse(fs.readFileSync(path.join(LOGS_FOLDER, file), 'utf8'));
@@ -40,15 +42,19 @@ function getHistory() {
                     if (!globalHistory.outage_summary[venue][device]) {
                         globalHistory.outage_summary[venue][device] = { ...stats };
                     } else {
-
                         const current = globalHistory.outage_summary[venue][device].attempt_count;
-                        if (stats.attempt_count > current + 5) {
-                         
-                            globalHistory.outage_summary[venue][device] = { ...stats };
-                        } else {
-                   
+                        
+                        if (stats.attempt_count <= 6 && current < 10) {
                             globalHistory.outage_summary[venue][device].attempt_count += stats.attempt_count;
                         }
+
+                        else if (stats.attempt_count > current) {
+                            globalHistory.outage_summary[venue][device].attempt_count = stats.attempt_count;
+                        }
+                        
+                        //  keep the latest metadata
+                        globalHistory.outage_summary[venue][device].last_reset = stats.last_reset;
+                        globalHistory.outage_summary[venue][device].port = stats.port;
                     }
                 }
             }
