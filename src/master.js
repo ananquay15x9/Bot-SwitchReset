@@ -29,29 +29,30 @@ function getHistory() {
 
 
     const allFiles = fs.readdirSync(LOGS_FOLDER);
-    const historyFiles = allFiles.filter(f => f.startsWith('history-log-') && f.endsWith('.json'));
-
-    historyFiles.forEach(file => {
+    
+    allFiles.forEach(file => {
         try {
             const fileData = JSON.parse(fs.readFileSync(path.join(LOGS_FOLDER, file), 'utf8'));
             for (const [venue, devices] of Object.entries(fileData.outage_summary || {})) {
                 if (!globalHistory.outage_summary[venue]) globalHistory.outage_summary[venue] = {};
                 
-                for (const [device, stats] of Object.entries(devices)) {                 
+                for (const [device, stats] of Object.entries(devices)) {
                     if (!globalHistory.outage_summary[venue][device]) {
-                  
                         globalHistory.outage_summary[venue][device] = { ...stats };
                     } else {
-                        
-                        globalHistory.outage_summary[venue][device].attempt_count += stats.attempt_count;
-                        
-                        
-                        globalHistory.outage_summary[venue][device].last_reset = stats.last_reset;
-                        globalHistory.outage_summary[venue][device].port = stats.port;
+
+                        const current = globalHistory.outage_summary[venue][device].attempt_count;
+                        if (stats.attempt_count > current + 5) {
+                         
+                            globalHistory.outage_summary[venue][device] = { ...stats };
+                        } else {
+                   
+                            globalHistory.outage_summary[venue][device].attempt_count += stats.attempt_count;
+                        }
                     }
                 }
             }
-        } catch (e) { /* skip corrupt files */ }
+        } catch (e) { }
     });
 
     return globalHistory;
