@@ -271,37 +271,72 @@ function findVenueMapping(venue) {
             }
         }
 
-        // send telegram prompt for the 6-digit code
-        await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
-            chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: `🚨 **MFA Code required for Netgear!** \n\nPlease reply with the 6-digit code:`,
-            parse_mode: 'Markdown'
-        });
+        // mfa retry loop 
+        let mfaSuccess = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                console.log(`📡 MFA Submission Attempt [${attempt}/3]...`);
+                
+                // send telegram prompt for the 6-digit code
+                await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+                    chat_id: process.env.TELEGRAM_CHAT_ID,
+                    text: attempt === 1 
+                        ? `🚨 **MFA Code required for Netgear!** \n\nPlease reply with the 6-digit code:`
+                        : `❌ **MFA Code was incorrect or timed out.** \n\n🔄 Attempt [${attempt}/3]: Please reply with a fresh 6-digit code:`,
+                    parse_mode: 'Markdown'
+                });
 
-        const mfaCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
+                const mfaCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
 
-        // target individual segmented input boxes
-        const digitInputs = page.locator('.otp-digit-input');
-        await digitInputs.first().waitFor({ state: 'visible', timeout: 15000 });
 
-        console.log("🔐 Entering MFA code...");
-        for (let i = 0; i < 6; i++) {
-            await digitInputs.nth(i).click();
-            await digitInputs.nth(i).fill(mfaCode[i]);
-            await page.keyboard.press(mfaCode[i]);
+                const digitInputs = page.locator('.otp-digit-input');
+
+                await digitInputs.first().waitFor({ state: 'visible', timeout: 15000 });
+
+                console.log(`🔐 Injecting MFA code: ${mfaCode}`);
+                for (let i = 0; i < 6; i++) {
+                    await digitInputs.nth(i).click();
+                    await digitInputs.nth(i).fill(mfaCode[i]);
+                    await page.keyboard.press(mfaCode[i]);
+                }
+
+                await page.waitForTimeout(1000);
+                await page.click('button[type="submit"]:has-text("Verify Code")');
+
+                // check if an error message pops up on screen indicating a bad code
+                await page.waitForTimeout(3000);
+                const invalidCodeMsg = page.locator('text=Invalid verification code');
+
+                if (await invalidCodeMsg.isVisible()) {
+                    console.log("⚠️ Netgear rejected the code. Clearing inputs for retry...");
+                    // Backspace out the boxes for a clean retry window
+                    for (let i = 0; i < 6; i++) {
+                        await digitInputs.nth(i).click();
+                        await page.keyboard.press('Backspace');
+                    }
+                    continue; // jump to next loop cycle for a new code request
+                }
+
+                try {
+                    await page.click('button:has-text("Trust")', { timeout: 5000 }); 
+                    await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 });
+                } catch (e) {}
+
+                mfaSuccess = true;
+                break; 
+
+            } catch (mfaErr) {
+                console.log(`⚠️ Attempt ${attempt} failed with error: ${mfaErr.message}`);
+                if (attempt === 3) throw mfaErr;
+            }
         }
 
-        await page.waitForTimeout(1000);
-        await page.click('button[type="submit"]:has-text("Verify Code")');
-
-        
-        try {
-            await page.click('button:has-text("Trust")', { timeout: 5000 }); 
-            await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 });
-        } catch (e) {}
+        if (!mfaSuccess) {
+            throw new Error("Failed to authenticate Netgear portal after 3 consecutive MFA attempts.");
+        }
     }
 
-    await page.waitForFunction(() => window.location.href.includes('dashboard'), { timeout: 30000 });
+    await page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('account'), { timeout: 30000 });
     console.log("✅ Inside the Portal.");
 
 
