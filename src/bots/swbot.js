@@ -336,8 +336,22 @@ function findVenueMapping(venue) {
         }
     }
 
-    await page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('account'), { timeout: 30000 });
-    console.log("✅ Inside the Portal.");
+    console.log("⏱️ Waiting for classic organization dashboard components to fully paint...");
+    try {
+        await page.waitForURL('**/classic/#/**', { timeout: 20000 });
+        // wait for either the location header or the main account navigation container to become visible
+        await Promise.race([
+            page.waitForSelector('#headerLocName', { timeout: 20000 }),
+            page.waitForSelector('.dashboard-wrapper, .account-info', { timeout: 20000 })
+        ]);
+        // give the JavaScript runtime an extra 3 seconds to bind event listeners to the header selectors
+        await page.waitForTimeout(3000);
+        console.log("✅ Inside the Portal and UI elements are responsive.");
+    } catch (err) {
+        console.log("⚠️ Dashboard UI is taking longer to settle. Attempting fallback URL re-route...");
+        await page.goto('https://insight.netgear.com/classic/#/devices/dash', { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#headerLocName', { timeout: 15000 });
+    }
 
 
 
