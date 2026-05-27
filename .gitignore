@@ -9,4 +9,4 @@ backupMaster.js
 testMaster.js
 testBot.js
 history-log.json
-down-devices-list.json
+history-log-*.json

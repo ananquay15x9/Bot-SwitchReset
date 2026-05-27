@@ -41,7 +41,9 @@ if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
     }).filter(v =>
         v.disconnected > 0 &&
         v.name !== 'iSite Office' &&
-        v.name !== 'Mizzou: Faurot Field'
+        v.name !== 'Mizzou: Faurot Field' &&
+        v.name !== 'Capital One Arena' &&
+        v.name !== 'Grand Casino Arena'
     ); // skip iSite Office and Mizzou Faurot Field
   });
 

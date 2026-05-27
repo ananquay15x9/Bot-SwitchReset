@@ -34,7 +34,7 @@ function getLogPath(dateObj = new Date()) {
     return path.join(path.join(__dirname, '../../logs'), `history-log-${d}.json`);
 }
 
-function updateHistory(venue, device, port) {
+function updateHistory(venue, device, port, statusReason = "Max Reset Attempts Exceeded") {
     const todayPath = getLogPath();
     let history = { outage_summary: {} };
 
@@ -50,7 +50,8 @@ function updateHistory(venue, device, port) {
     history.outage_summary[venue][device] = {
         port: port || "NA",
         attempt_count: newCount,
-        last_reset: new Date().toLocaleTimeString("en-US", { hour12: false })
+        last_reset: new Date().toLocaleTimeString("en-US", { hour12: false }),
+        reason: statusReason //  record why it failed
     };
 
     // do not mark dead in the history logs file
@@ -64,9 +65,12 @@ const getMFACode = async (botToken, chatId) => {
     
     // flush the old message and get new one
     // we can now let the bot login via telegram or terminal, send the code to terminal worked
-    let lastUpdateId = 0;
+    let lastUpdateId = process.argv[3] ? parseInt(process.argv[3]) : 0;
+
     try {
-        const initialRes = await axios.get(`https://api.telegram.org/bot${botToken}/getUpdates`);
+        const initialRes = await axios.get(`https://api.telegram.org/bot${botToken}/getUpdates`, {
+            params: { offset: -1, timeout: 0 }
+        });
         const updates = initialRes.data.result;
         if (updates.length > 0) {
             lastUpdateId = updates[updates.length - 1].update_id;
@@ -102,7 +106,9 @@ const getMFACode = async (botToken, chatId) => {
                 }
             }
         } catch (e) {
-            console.error("⚠️ Telegram polling error:", e.message);
+            if (!e.message.includes('409')) {
+                console.error("⚠️ Telegram polling error:", e.message);
+            }
         }
         await new Promise(r => setTimeout(r, 3000));
     }
@@ -115,8 +121,32 @@ function normalizeGroupName(name) {
     let clean = name.trim();
     clean = clean.replace(/\s*Mens?$/i, 'M');
     clean = clean.replace(/\s*Womens?$/i, 'W');
-    clean = clean.replace(/\s+/g, '');
+    clean = clean.replace(/\s+/g, '_');
+    clean = clean.replace(/[_-]{2,}/g, '_');
     return clean.toUpperCase();
+}
+
+function buildFlexibleNameRegex(name) {
+    const safe = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const flexible = safe.replace(/[_\s-]+/g, '[_\\s-]*');
+    return new RegExp(`^${flexible}$`, 'i');
+}
+
+async function getNameCell(page, targetGroup) {
+    const rows = page.locator('.ag-pinned-left-cols-container .ag-cell[col-id="name"] p.breakWord');
+    const exactRegex = buildFlexibleNameRegex(targetGroup);
+
+    const exactCell = rows.filter({ hasText: exactRegex }).first();
+    if (await exactCell.count() > 0) return exactCell;
+
+    const substringRegex = new RegExp(targetGroup.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const substringCell = rows.filter({ hasText: substringRegex }).first();
+    if (await substringCell.count() > 0) return substringCell;
+
+    const totalRows = await rows.count();
+    if (totalRows === 1) return rows.first();
+
+    return null;
 }
 
 const venueMap = {
@@ -136,8 +166,30 @@ const venueMap = {
     "UNC - Dean Smith Center": "Dean Smith",
     "Villanova - Finneran Pavilion": "Villanova",
     "Virginia - John Paul Jones": "U of Virginia - JPJ",
-    "Virginia Tech - Cassel Coliseum": "Virginia Tech"
+    "Virginia Tech - Cassell Coliseum": "Virginia Tech"
 };
+
+function normalizeVenueKey(s) {
+    return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function findVenueMapping(venue) {
+    if (!venue) return null;
+    if (venueMap[venue]) return venueMap[venue];
+    const norm = normalizeVenueKey(venue);
+    // exact normalized match
+    for (const k of Object.keys(venueMap)) {
+        if (normalizeVenueKey(k) === norm) return venueMap[k];
+    }
+    // substring normalized match (either direction)
+    for (const k of Object.keys(venueMap)) {
+        const nk = normalizeVenueKey(k);
+        if (norm.includes(nk)) {
+            return venueMap[k]; // Returns the intended Netgear target short name!
+        }
+    }
+    return null;
+}
 
 (async () => {
     // mapping
@@ -180,54 +232,68 @@ const venueMap = {
     const swList = JSON.parse(fs.readFileSync(SCAN_FILE, 'utf8'));
 
     await page.goto('https://insight.netgear.com/#/landingPage');
-    if (await page.isVisible('#loginNow')) await page.click('#loginNow');
+    
+    //allow script to handle landing page redirection
+    await page.waitForTimeout(3000);
 
     // AUTH LOGIN
     let authState = 'UNKNOWN';
     try {
         authState = await Promise.race([
-            page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('code='), { timeout: 15000 }).then(() => 'LOGGED_IN'),
-            page.waitForSelector('input[formcontrolname="email"]', { timeout: 10000 }).then(() => 'NEEDS_LOGIN'),
-            page.waitForSelector('#try3', { timeout: 10000 }).then(() => 'NEEDS_MFA')
+            page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('account'), { timeout: 15000 }).then(() => 'LOGGED_IN'),
+            page.waitForSelector('#email', { timeout: 10000 }).then(() => 'NEEDS_LOGIN'),
+            page.waitForSelector('button:has-text("Try Another Verification Method")', { timeout: 10000 }).then(() => 'NEEDS_MFA')
         ]);
     } catch (e) { console.log("ℹ️ Checking session..."); }
 
     if (authState !== 'LOGGED_IN') {
-        console.log("\n👤 MFA Required:");
-        const userChoice = process.env.MFA_USER_CHOICE || '2';
-        console.log(`Hello, ${userChoice === '1' ? 'Ruben' : 'Tu'}`);
-        
-        if (authState === 'NEEDS_LOGIN') {
-            await page.locator('input[formcontrolname="email"]').fill(process.env.NETGEAR_EMAIL);
-            await page.locator('input[formcontrolname="password"]').click();
-            await page.keyboard.type(process.env.NETGEAR_PWD, { delay: 50 });
-            await page.keyboard.press('Enter');
+        if (authState === 'NEEDS_LOGIN' || await page.isVisible('#email')) {
+            console.log("👤 Entering credentials into updated Netgear Auth layout...");
+            await page.locator('#email').fill(process.env.NETGEAR_EMAIL);
+            await page.locator('#password').fill(process.env.NETGEAR_PWD);
+            await page.click('button[type="submit"]:has-text("Sign In")');
         }
 
-        await page.waitForSelector('#try3', { timeout: 15000 });
-        await page.click('#try3');
-        await page.click(userChoice === '1' ? 'text=7166' : 'text=6646');
-        await page.click('button:has-text("Continue")');
+        // wait for authentication screens
+        try {
+            await page.waitForURL('**/verify-challenge', { timeout: 15000 });
+        } catch(e) {}
 
-        // Send Telegram Prompt
+        // route to alternate method profile (email code)
+        const altBtn = page.locator('button:has-text("Try Another Verification Method")');
+        if (await altBtn.isVisible()) {
+            await altBtn.click();
+            //select email verification if prompted
+            const emailOption = page.locator('text=Email');
+            if (await emailOption.isVisible()) {
+                await emailOption.click();
+                await page.click('button:has-text("Continue")').catch(() => {});
+            }
+        }
+
+        // send telegram prompt for the 6-digit code
         await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
             chat_id: process.env.TELEGRAM_CHAT_ID,
-            text: `🚨 MFA Code required for Netgear! \n\nPlease reply with the 6-digit code:`,
+            text: `🚨 **MFA Code required for Netgear!** \n\nPlease reply with the 6-digit code:`,
             parse_mode: 'Markdown'
         });
 
         const mfaCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
-        const otpInput = page.locator('input.otp-input').first();
-        await otpInput.waitFor({ state: 'visible', timeout: 15000 });
 
-        // clear the field first
-        await otpInput.click({ clickCount: 3 });
-        await page.keyboard.press('Control+a');
-        await page.keyboard.press('Backspace');
+        // target individual segmented input boxes
+        const digitInputs = page.locator('.otp-digit-input');
+        await digitInputs.first().waitFor({ state: 'visible', timeout: 15000 });
 
-        await otpInput.fill(mfaCode);
+        console.log("🔐 Entering MFA code...");
+        for (let i = 0; i < 6; i++) {
+            await digitInputs.nth(i).click();
+            await digitInputs.nth(i).fill(mfaCode[i]);
+            await page.keyboard.press(mfaCode[i]);
+        }
+
         await page.waitForTimeout(1000);
-        await page.click('button:has-text("Continue")');
+        await page.click('button[type="submit"]:has-text("Verify Code")');
+
         
         try {
             await page.click('button:has-text("Trust")', { timeout: 5000 }); 
@@ -254,13 +320,45 @@ const venueMap = {
             continue;
         }
         
-        const netgearVenueName = venueMap[venueData.venue] || venueData.venue;
+        const netgearVenueName = findVenueMapping(venueData.venue) || venueMap[venueData.venue] || venueData.venue;
         console.log(`\n🏢 Venue: ${netgearVenueName}`);
 
         try {
             await page.click('#headerLocName');
             await page.waitForSelector('.search-location-list', { timeout: 5000 });
-            await page.locator('.location-title', { hasText: new RegExp(`^${netgearVenueName}$`, 'i') }).click();
+            // Strict matching: prefer exact text match, then contains; fail loudly if not found
+            const locationTitles = page.locator('.location-title');
+            const totalLocations = await locationTitles.count();
+            let clickedVenue = false;
+
+            for (let i = 0; i < totalLocations; i++) {
+                const el = locationTitles.nth(i);
+                const text = (await el.innerText()).trim();
+                if (text.toLowerCase() === netgearVenueName.toLowerCase()) {
+                    await el.click();
+                    clickedVenue = true;
+                    break;
+                }
+            }
+
+            if (!clickedVenue) {
+                for (let i = 0; i < totalLocations; i++) {
+                    const el = locationTitles.nth(i);
+                    const text = (await el.innerText()).trim().toLowerCase();
+                    if (text.includes(netgearVenueName.toLowerCase())) {
+                        await el.click();
+                        clickedVenue = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!clickedVenue) {
+                // gather available titles for debugging
+                const seen = [];
+                for (let i = 0; i < totalLocations; i++) seen.push((await locationTitles.nth(i).innerText()).trim());
+                throw new Error(`Could not find Netgear location matching "${netgearVenueName}". Available: ${seen.join(' | ')}`);
+            }
 
             await page.waitForLoadState('networkidle');
             await page.waitForSelector('a[href*="/devices/dash"]', { timeout: 15000 });
@@ -283,23 +381,102 @@ const venueMap = {
                 // searching for the bathroom
                 const searchBar = page.locator('div.m-b-10 input.agGridSearch').first();
                 await searchBar.waitFor({ state: 'visible', timeout: 10000 });
-                await searchBar.click({ clickCount: 3 });
-                await page.keyboard.press('Control+a');
+                await searchBar.fill('');
+                await page.keyboard.press('Control+A');
                 await page.keyboard.press('Backspace');
                 await searchBar.fill(targetGroup);
                 await page.waitForTimeout(2000); 
 
-                // double click 
-                const escapedName = targetGroup.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const nameCell = page.locator(
-                    '.ag-pinned-left-cols-container .ag-cell[col-id="name"] p.breakWord'
-                ).filter({ hasText: new RegExp(`^${escapedName}$`) }).first();
-                
-                await nameCell.waitFor({ state: 'visible', timeout: 10000 });
+                // 🎯 Step 1: Find the target row name cell inside the left pinned panel
+                const nameCell = await getNameCell(page, targetGroup);
+                if (!nameCell) {
+                    throw new Error(`Could not find target group row for ${targetGroup}`);
+                }
+
+                // 🎯 Step 2: Extract the row-index cleanly using browser-side DOM traversal
+                const rowIndex = await nameCell.evaluate(el => {
+                    const row = el.closest('.ag-row');
+                    return row ? row.getAttribute('row-index') : null;
+                });
+
+                if (rowIndex !== null) {
+                    console.log(`🎯 Identified AG-Grid Row Index: ${rowIndex}`);
+                    
+                    // 🎯 Step 3: Match that exact row-index inside the main body pane to check the side-by-side status tag
+                    const statusCell = page.locator(`.ag-center-cols-container .ag-row[row-index="${rowIndex}"] .ag-cell[col-id="deviceStatus"]`).first();
+                    
+                    if (await statusCell.isVisible()) {
+                        const statusText = await statusCell.innerText();
+                        
+                        // 🛑 DISCONNECTED STATUS ESCALATION LOOP
+                        if (statusText.includes('Device is disconnected') || await statusCell.locator('p.deviceStatus.colorRed').isVisible()) {
+                            console.log(`❌ SKIPPING: Switch "${targetGroup}" is [OFFLINE / DISCONNECTED] at ${venueData.venue}. Escalating to dead queue.`);
+                            
+                           // max out history log counters instantly and log the specific hardware block reason
+                            for (let forceCount = 0; forceCount < 7; forceCount++) {
+                                updateHistory(venueData.venue, sw.location, sw.port, "Switch Disconnected");
+                            }
+                            
+                            // jump to the next switch without attempting reset
+                            continue; 
+                        }
+                        console.log(`🟢 Switch "${targetGroup}" is Connected. Proceeding...`);
+                    }
+                } else {
+                    console.log(`⚠️ Warning: Could not resolve AG-Grid row element context for ${targetGroup}. Defaulting to drilldown.`);
+                }
+
+                // Double click the pinned cell to safely step inside the switch view
                 await nameCell.dblclick();
 
-                // reached the summary page
-                await page.waitForURL('**/devices/switch/summary**', { timeout: 15000 });
+                // check session and slow page guard
+                console.log("⏱️ Waiting for switch summary view to load safely...");
+                let viewState = "UNKNOWN";
+                try {
+                    viewState = await Promise.race([
+                        // page loaded successfully 
+                        page.waitForSelector('.box-scroller', { timeout: 20000 }).then(() => 'READY'),
+                        // negear silently dropped the session
+                        page.waitForSelector('#email', { timeout: 20000 }).then(() => 'RE_AUTH_REQUIRED'),
+                        // page is being sluggish 
+                        page.waitForNavigation({ waitUntil: 'networkidle', timeout: 20000 }).then(() => 'SLOW_LOAD')
+                    ]);
+                } catch (e) {
+                    console.log("ℹ️ Summary page load is lagging...");
+                }
+
+                // Re-Authentication check if portal bounced the bot out
+                if (viewState === 'RE_AUTH_REQUIRED' || await page.isVisible('#email')) {
+                    console.log("🚨 Session expired mid-transit! Re-triggering Netgear authentication flow...");
+                    
+                    await page.locator('#email').fill(process.env.NETGEAR_EMAIL);
+                    await page.locator('#password').fill(process.env.NETGEAR_PWD);
+                    await page.click('button[type="submit"]:has-text("Sign In")');
+                    
+                    // call Telegram/Terminal MFA listener to pull a fresh 6-digit challenge key safely
+                    const freshCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
+                    const digitInputs = page.locator('.otp-digit-input');
+                    await digitInputs.first().waitFor({ state: 'visible', timeout: 15000 });
+                    
+                    for (let i = 0; i < 6; i++) {
+                        await digitInputs.nth(i).click();
+                        await digitInputs.nth(i).fill(freshCode[i]);
+                        await page.keyboard.press(freshCode[i]);
+                    }
+                    await page.waitForTimeout(1000);
+                    await page.click('button[type="submit"]:has-text("Verify Code")');
+                    
+                    // bounce right back to the target switch view layout link context
+                    await page.goto(`https://insight.netgear.com/#/devices/switch/summary`, { waitUntil: 'networkidle' });
+                }
+
+                // final safety verification check to make sure the target DOM available
+                try {
+                    await page.waitForSelector('.box-scroller', { timeout: 15000 });
+                } catch (err) {
+                    throw new Error(`Summary layout failed to settle: .box-scroller not found. Portal might be down or sluggish.`);
+                }
+
 
                 // PoE stats
                 await page.waitForSelector('.box-scroller', { timeout: 15000 });
@@ -472,13 +649,30 @@ const venueMap = {
                         } catch (e) {}
 
                         // redirect to summary page to power cycle
-                        await page.goto('https://insight.netgear.com/#/devices/switch/summary');
-                        await page.reload({ waitUntil: 'networkidle' });
-                        await page.waitForSelector('a:has-text("PoE Management")');
-                        await page.click('a:has-text("PoE Management")');
-                        await page.waitForURL('**/devices/switch/PoE', { timeout: 10000 });
+                        console.log("🔄 Navigating to PoE Management tab...");
+                        const poeTabBtn = page.locator('a:has-text("PoE Management")').first();
 
-                        await page.waitForTimeout(500);
+                        if (await poeTabBtn.isVisible()) {
+                            await poeTabBtn.click();
+                        } else {
+                            // fall back
+                            const currentUrl = page.url();
+                            if (currentUrl.includes('/devices/switch/')) {
+                                // Dynamically morph the current specific switch URL into its relative PoE management counterpart
+                                const poeUrl = currentUrl.split('?')[0].replace(/\/summary|\/portConfiq.*/, '/PoE');
+                                await page.goto(poeUrl, { waitUntil: 'networkidle' });
+                            } else {
+                                // Ultimate fallback if completely thrown out of the switch view
+                                await page.goto('https://insight.netgear.com/#/devices/switch/summary');
+                                await page.waitForSelector('a:has-text("PoE Management")', { timeout: 10000 });
+                                await page.click('a:has-text("PoE Management")');
+                            }
+                        }
+
+                        await page.waitForURL('**/devices/switch/PoE', { timeout: 15000 });
+                        await page.waitForSelector('#btnSavePowerCyclePrts', { timeout: 15000 });
+                        await page.waitForTimeout(1000);
+
                         console.log(`⚡ PHASE 2: Power Cycle (Attempt ${attemptNum})`);
 
                         for (const portNum of targetsToReset) {
@@ -501,7 +695,7 @@ const venueMap = {
                         if (isEnabled) {
                             await cycleBtn.click();
                             console.log(`✅ Power Cycle Triggered.`);
-                            await page.waitForTimeout(2000);
+                            await page.waitForTimeout(3000);
                         } else {
                             console.log(`⚠️ Button stayed disabled. Port may be unresponsive.`);
                         }

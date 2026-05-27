@@ -5,8 +5,8 @@ const axios = require('axios');
 const readline = require('readline');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const TG_TOKEN = process.env.TELEGRAM_TOKEN;
-const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TG_TOKEN = process.env.TELEGRAM_TEST_TOKEN;
+const TG_CHAT_ID = process.env.TELEGRAM_TEST_ID;
 
 const LOGS_DIR = path.join(__dirname, '../logs');
 const REPORTS_DIR = path.join(LOGS_DIR, 'reports');
@@ -57,16 +57,48 @@ function getHistory() {
 
 
 
+function chunkTelegramMessage(message, maxLength = 4000) {
+    if (message.length <= maxLength) return [message];
+    const lines = message.split('\n');
+    const chunks = [];
+    let current = '';
+
+    for (const line of lines) {
+        if ((current + line + '\n').length > maxLength) {
+            if (current.length > 0) {
+                chunks.push(current.trimEnd());
+                current = '';
+            }
+            if (line.length > maxLength) {
+                // fallback for exceptionally long single lines
+                for (let i = 0; i < line.length; i += maxLength) {
+                    chunks.push(line.slice(i, i + maxLength));
+                }
+                continue;
+            }
+        }
+        current += line + '\n';
+    }
+
+    if (current.length > 0) chunks.push(current.trimEnd());
+    return chunks;
+}
+
 async function sendTelegram(message) {
     const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
-    try {
-        await axios.post(url, { 
-            chat_id: TG_CHAT_ID, 
-            text: message, 
-            parse_mode: 'Markdown' 
-        });
-    } catch (e) {
-        console.error("❌ Telegram error:", e.response ? e.response.data : e.message);
+    const chunks = Array.isArray(message) ? message : chunkTelegramMessage(message);
+
+    for (const chunk of chunks) {
+        try {
+            await axios.post(url, {
+                chat_id: TG_CHAT_ID,
+                text: chunk,
+                parse_mode: 'Markdown'
+            });
+            await new Promise((resolve) => setTimeout(resolve, 200));
+        } catch (e) {
+            console.error("❌ Telegram error:", e.response ? e.response.data : e.message);
+        }
     }
 }
 
@@ -83,17 +115,19 @@ _Simply type a command below to begin._`;
 
 
 // generate a report and send to telegram
-function generateReport() {
+function generateReportChunks() {
     if (!fs.existsSync(SCAN_FILE)) return "❓ No down-devices-list found. Run a scan first.";
 
     const data = JSON.parse(fs.readFileSync(SCAN_FILE, 'utf8'));
     const history = getHistory();
     let totalDown = 0;
-    let reportBody = "";
+
+    const chunks = [];
+    let currentChunk = `📊 **iSite Outage Report**\n\n`;
 
     data.forEach(v => {
         const safeVenue = v.venue.replace(/_/g, ' '); 
-        reportBody += `🏢 **${safeVenue}:**\n`; 
+        let venueBlock = `🏢 **${safeVenue}:**\n`;
 
         v.switches.forEach(sw => {
             const venueHistory = history.outage_summary ? history.outage_summary[v.venue] : null;
@@ -102,9 +136,9 @@ function generateReport() {
             
             // format attempt string
             const getOrdinal = (n) => {
-            const s = [""];
-            const v = n % 100;
-            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                const s = [""];
+                const v = n % 100;
+                return n + (s[(v - 20) % 10] || s[v] || s[0]);
         };
 
             let attStr = count === 0 ? "Zero attempts" : `Total Attempts: ${getOrdinal(count)}`;
@@ -113,10 +147,17 @@ function generateReport() {
             const portDisplay = (sw.port === "N/A" || !sw.port) ? "NA" : sw.port;
 
             // indent device line
-            reportBody += `      ┗ ${safeLoc} - Port ${portDisplay} - ${attStr}\n`;
+            venueBlock += `      ┗ ${safeLoc} - Port ${portDisplay} - ${attStr}\n`;
             totalDown++;
         });
-        reportBody += `\n`; 
+        venueBlock += `\n`; 
+
+        if ((currentChunk + venueBlock).length > 3500) {
+            chunks.push(currentChunk);
+            currentChunk = `🏢 **Continued Outage Report:**\n\n` + venueBlock;
+        } else {
+            currentChunk += venueBlock;
+        }
     });
 
     // re format time
@@ -136,7 +177,16 @@ function generateReport() {
     footer += "• Type \`reset [venue]\` to target just one site.\n";
     footer += "• Type \`show dead\` to show dead devices.\n";
     footer += "• Type \`exit\` or \`done\` to shut down"; // Updated line
-    return header + reportBody + footer;
+    
+    if ((currentChunk + footer).length > 4000) {
+        chunks.push(currentChunk);
+        chunks.push(footer);
+    } else {
+        currentChunk += footer;
+        chunks.push(currentChunk);
+    }
+
+    return chunks;
 }
 
 function generateDeadReport() {
@@ -147,11 +197,18 @@ function generateDeadReport() {
     for (const [venue, devices] of Object.entries(history.outage_summary)) {
         for (const [device, stats] of Object.entries(devices)) {
             if (stats.attempt_count >= 6) {
-                const safeVenue = venue.replace(/_/g, ' ');
+                const safeVenue = venue.replace(/[_*`]/g, ' ').trim();
+                const safeDevice = device.replace(/[_*`]/g, ' ').trim();
+                const rawReason = (stats.reason || "Max Reset Attempts Exceeded").trim();
+                const isDisconnected = rawReason.toLowerCase().includes('switch disconnected') || rawReason.toLowerCase().includes('disconnected');
+                const reasonLabel = isDisconnected ? 'Switch Disconnected' : 'Too many reset attempts';
+                const emojiTag = isDisconnected ? '🔌' : '💀';
+                const portDisplay = stats.port || 'NA';
+
                 if (!groupedDead[safeVenue]) groupedDead[safeVenue] = [];
 
                 groupedDead[safeVenue].push(
-                    `      ┗ 💀 ${device} (Port ${stats.port}) - Total Attempts: ${stats.attempt_count}`
+                    `      ┗ ${emojiTag} **${safeDevice}** (Port ${portDisplay})\n        └── ⚠️ _${reasonLabel}_`
                 );
                 deadCount++;
             }
@@ -205,25 +262,19 @@ async function startResetting() {
     } catch (e) { console.error("⚠️ Initial flush failed, starting fresh."); }
 
     // ------------------------------------------
-function getGreeting() {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning ☕";
-    if (hour < 17) return "Good afternoon ☀️";
-    return "Good evening 🌙";
-}
+    function getGreeting() {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Good morning ☕";
+        if (hour < 17) return "Good afternoon ☀️";
+        return "Good evening 🌙";
+    }
 
-async function sendStartupMessage() {
-    const greeting = getGreeting();
-    const message = `
-${greeting}
+    async function sendStartupMessage() {
+        const greeting = getGreeting();
+        const message = `${greeting}\n\nI am online and ready to reset these switches! 🚀\nLet me know what I need to do:\n\n${COMMAND_MENU}`;
 
-I am online and ready to reset these switches haha 🥹
-Let me know what I need to do:
-
-${COMMAND_MENU}`;
-
-    await sendTelegram(message);
-}
+        await sendTelegram(message);
+    }
 
     await sendStartupMessage();
 
@@ -237,7 +288,7 @@ ${COMMAND_MENU}`;
     // command handler
     async function handleCommand(text) {
         // 0, checking if it's online
-        if (text === 'hi' || text === 'ping' || text === 'are you online' || text === 'online?' || text === 'are you online?' || text === 'online') {
+        if (['hi', 'ping', 'are you online', 'online?', 'are you online?', 'online'].includes(text)) {
             await sendTelegram("👋 I'm online! I'm very happy, just tell me what to do 🥹🥹");
         }
 
@@ -247,59 +298,92 @@ ${COMMAND_MENU}`;
         }
 
         // option 1: scan
-        else if (text === 'scan' || text === 'status') {
-            if (text === 'status' && !fs.existsSync(SCAN_FILE)) {
-                await sendTelegram("Let me scan to get down devices!");
-                await runScript('src/scanner/sw-list.js');
-            } else if (text === 'scan') {
-                await sendTelegram("🔎 Pulling full network audit...");
-                await runScript('src/scanner/sw-list.js');
+        else if (text === 'scan') {
+            await sendTelegram("🔎 Initiating fresh network audit... Scraping iSite Portal now.");
+
+            const scannerPath = fs.existsSync(path.join(__dirname, 'scanner/sw-list.js'))
+                ? path.join(__dirname, 'scanner/sw-list.js')
+                : path.join(__dirname, 'src/scanner/sw-list.js');
+
+            const exitCode = await runScript(scannerPath);
+
+            if (exitCode === 0) {
+                const reportChunks = generateReportChunks();
+                for (const chunk of reportChunks) {
+                    await sendTelegram(chunk);
+                    await new Promise(r => setTimeout(r, 500)); 
+                }
+            } else {
+                await sendTelegram("❌ The scan script crashed. Check terminal logs for details.");
             }
-            await sendTelegram(generateReport());
         }
 
-        // option 2: reset all
-        else if (text === 'reset all') {
-            await sendTelegram("Starting FULL network reset cycle...");
-            await runScript('src/bots/swbot.js');
-            await sendTelegram("✨ All down devices have been reset.");
-        }
-
-        // option 3: targeted reste
-        else if (text.startsWith('reset ')) {
-            // Check if we need to auto-scan before we can filter venues
+        // option 2: status check (fast cache read)
+        else if (text === 'status') {
             if (!fs.existsSync(SCAN_FILE)) {
-                await sendTelegram("⚠️ Missing device list. Let me scan it first.");
-                await sendTelegram("Getting Down Devices Info:");
-                await runScript('src/scanner/sw-list.js');
+                await sendTelegram("❓ No cached device list found. Forcing an initial scan...");
+                const scannerPath = fs.existsSync(path.join(__dirname, 'scanner/sw-list.js'))
+                    ? path.join(__dirname, 'scanner/sw-list.js')
+                    : path.join(__dirname, 'src/scanner/sw-list.js');
+                await runScript(scannerPath);
+            } else {
+                await sendTelegram("📊 Pulling latest cached device snapshot:");
+            }
+            
+            const reportChunks = generateReportChunks();
+            for (const chunk of reportChunks) {
+                await sendTelegram(chunk);
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
+        // option 3: rest all
+        else if (text === 'reset all') {
+            await sendTelegram("Starting FULL network reset cycle via Netgear Portal...");
+            const botPath = fs.existsSync(path.join(__dirname, 'bots/swbot.js'))
+                ? path.join(__dirname, 'bots/swbot.js')
+                : path.join(__dirname, 'src/bots/swbot.js');
+            await runScript(botPath);
+            await sendTelegram("✨ All down devices have been processed through the reset loop.");
+        }
+
+        // option 4: targeted reset
+        else if (text.startsWith('reset ')) {
+            if (!fs.existsSync(SCAN_FILE)) {
+                await sendTelegram("⚠️ Missing device list. Running full audit first...");
+                const scannerPath = fs.existsSync(path.join(__dirname, 'scanner/sw-list.js'))
+                    ? path.join(__dirname, 'scanner/sw-list.js')
+                    : path.join(__dirname, 'src/scanner/sw-list.js');
+                await runScript(scannerPath);
             }
 
             const query = text.replace('reset ', '').trim();
-
-            // support multiple venues
             const queries = query.split(/\band\b|&&/).map(q => q.trim());
-            for (const query of queries) {
+            
+            const botPath = fs.existsSync(path.join(__dirname, 'bots/swbot.js'))
+                ? path.join(__dirname, 'bots/swbot.js')
+                : path.join(__dirname, 'src/bots/swbot.js');
+
+            for (const currentQuery of queries) {
                 const data = JSON.parse(fs.readFileSync(SCAN_FILE, 'utf8'));
-                // find matches
-                const matches = data.filter(v => v.venue.toLowerCase().includes(query));
+                const matches = data.filter(v => v.venue.toLowerCase().includes(currentQuery));
 
                 if (matches.length === 0) {
-                    await sendTelegram(`❓ No venue found matching "${query}". Check the report and try again.`);
+                    await sendTelegram(`❓ No venue found matching "${currentQuery}". Check the report and try again.`);
                 } else if (matches.length > 1) {
                     const options = matches.map(m => m.venue).join('\n');
                     await sendTelegram(`⚠️ Multiple matches found:\n${options}\n\nPlease be more specific!`);
                 } else {
                     const target = matches[0].venue;
-                    await sendTelegram(`🎯 Target Acquired: **${target}**.\nSending Bot to Reset Switches.`);
-
-                    await runScript('src/bots/swbot.js', `"${target}"`);
+                    await sendTelegram(`🎯 Target Acquired: **${target}**.\nSending Bot to Netgear to reset specific switch layout.`);
+                    await runScript(botPath, `"${target}"`);
                     await sendTelegram(`✅ Reset cycle for ${target} complete.`);
                 }
             }
-            await sendTelegram("🏁 **All queued resets are finished.**");
-          }
+            await sendTelegram("🏁 **All queued targeted resets are finished.**");
+        }
 
-        // option 4: exit
+        // option 5: exit
         else if (text === 'exit' || text === 'done' || text === 'stop') {
             await sendTelegram("🫡 **I'm signing off.** Catch you on the next auto-scan!");
             console.log("👋 Manual session ended by user. Exiting...");
@@ -307,7 +391,7 @@ ${COMMAND_MENU}`;
             process.exit(0);
         }
 
-        // option 5: show dead devices
+        // option 6: show dead devices
         else if (text === 'dead' || text === 'show dead' || text === 'skip') {
             await sendTelegram("💀 **Generating Dead Devices**");
             await sendTelegram(generateDeadReport());
@@ -337,7 +421,6 @@ ${COMMAND_MENU}`;
 const schedule = require('node-schedule');
 
 function setupScheduler() {
-    // times: 8:00 AM, 2:00 PM, and 7:00 PM (Chicago Time)
     const scheduledTimes = ['0 8 * * *', '0 14 * * *', '0 19 * * *'];
 
     scheduledTimes.forEach(t => {
@@ -345,11 +428,24 @@ function setupScheduler() {
             console.log(`🕒 Scheduled Shift Triggered (${t}): Sending Bot...`);
             await sendTelegram("🤖 **Scheduled Shift Started.** Running full audit and reset cycle...");
 
-            await runScript('src/scanner/sw-list.js');
-            await runScript('src/bots/swbot.js');
+            const scannerPath = fs.existsSync(path.join(__dirname, 'scanner/sw-list.js'))
+                ? path.join(__dirname, 'scanner/sw-list.js')
+                : path.join(__dirname, 'src/scanner/sw-list.js');
+                
+            const botPath = fs.existsSync(path.join(__dirname, 'bots/swbot.js'))
+                ? path.join(__dirname, 'bots/swbot.js')
+                : path.join(__dirname, 'src/bots/swbot.js');
+
+            await runScript(scannerPath);
+            await runScript(botPath);
 
             await sendTelegram("✨ **Auto-Run Complete.** Here is the final status:");
-            await sendTelegram(generateReport());
+            
+            const reportChunks = generateReportChunks();
+            for (const chunk of reportChunks) {
+                await sendTelegram(chunk);
+                await new Promise(r => setTimeout(r, 500));
+            }
         });
     });
     console.log("📅 Scheduler active: 8:00 AM, 2:00 PM, 7:00 PM.");

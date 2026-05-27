@@ -1,0 +1,567 @@
+[
+  {
+    "venue": "Amerant Bank Arena",
+    "switches": [
+      {
+        "serial": "00000000311b4092",
+        "port": "N/A",
+        "location": "326M 01",
+        "group": "326M"
+      },
+      {
+        "serial": "00000000499163a6",
+        "port": "13",
+        "location": "326M 02",
+        "group": "326M"
+      },
+      {
+        "serial": "00000000bc259f03",
+        "port": "N/A",
+        "location": "326M 03",
+        "group": "326M"
+      },
+      {
+        "serial": "000000006fee5574",
+        "port": "N/A",
+        "location": "326M 04",
+        "group": "326M"
+      },
+      {
+        "serial": "000000008bb9c4a5",
+        "port": "N/A",
+        "location": "326M 05",
+        "group": "326M"
+      },
+      {
+        "serial": "00000000f341a354",
+        "port": "N/A",
+        "location": "326M 06",
+        "group": "326M"
+      },
+      {
+        "serial": "00000000eedb7439",
+        "port": "N/A",
+        "location": "326M 07",
+        "group": "326M"
+      },
+      {
+        "serial": "00000000c261b7e9",
+        "port": "N/A",
+        "location": "326M 08",
+        "group": "326M"
+      },
+      {
+        "serial": "00000000c39b0e9b",
+        "port": "8",
+        "location": "328W 01",
+        "group": "328W"
+      },
+      {
+        "serial": "000000006909dfb0",
+        "port": "6",
+        "location": "328W 02",
+        "group": "328W"
+      },
+      {
+        "serial": "0000000071fe0c3b",
+        "port": "4",
+        "location": "328W 03",
+        "group": "328W"
+      },
+      {
+        "serial": "000000006afad72f",
+        "port": "N/A",
+        "location": "328W 04",
+        "group": "328W"
+      },
+      {
+        "serial": "00000000651b6c3d",
+        "port": "N/A",
+        "location": "332M 01",
+        "group": "332M"
+      },
+      {
+        "serial": "0000000026b035cd",
+        "port": "4",
+        "location": "332M 02",
+        "group": "332M"
+      },
+      {
+        "serial": "00000000f471640c",
+        "port": "6",
+        "location": "332M 03",
+        "group": "332M"
+      },
+      {
+        "serial": "00000000a9cf541f",
+        "port": "N/A",
+        "location": "332M 04",
+        "group": "332M"
+      },
+      {
+        "serial": "000000000a41bfe8",
+        "port": "10",
+        "location": "332M 05",
+        "group": "332M"
+      },
+      {
+        "serial": "00000000b5a086f7",
+        "port": "N/A",
+        "location": "332M 06",
+        "group": "332M"
+      },
+      {
+        "serial": "0000000018da77fc",
+        "port": "N/A",
+        "location": "332M 07",
+        "group": "332M"
+      },
+      {
+        "serial": "00000000623e924b",
+        "port": "12",
+        "location": "332W 01",
+        "group": "332W"
+      },
+      {
+        "serial": "00000000d9539d0a",
+        "port": "N/A",
+        "location": "332W 02",
+        "group": "332W"
+      },
+      {
+        "serial": "000000006dba1ed9",
+        "port": "8",
+        "location": "332W 03",
+        "group": "332W"
+      },
+      {
+        "serial": "00000000df662e71",
+        "port": "N/A",
+        "location": "332W 04",
+        "group": "332W"
+      },
+      {
+        "serial": "00000000b2217ab9",
+        "port": "4",
+        "location": "332W 05",
+        "group": "332W"
+      },
+      {
+        "serial": "00000000c57d8ee5",
+        "port": "N/A",
+        "location": "332W 06",
+        "group": "332W"
+      },
+      {
+        "serial": "0000000088424772",
+        "port": "N/A",
+        "location": "332W 07",
+        "group": "332W"
+      }
+    ]
+  },
+  {
+    "venue": "Auburn - Neville Arena",
+    "switches": [
+      {
+        "serial": "1000000089f571cd",
+        "port": "12",
+        "location": "110M 06",
+        "group": "110M"
+      }
+    ]
+  },
+  {
+    "venue": "Baylor - Foster Pavilion",
+    "switches": [
+      {
+        "serial": "10000000b1cddfe3",
+        "port": "7",
+        "location": "121W 04",
+        "group": "121W"
+      }
+    ]
+  },
+  {
+    "venue": "Canada Life Centre",
+    "switches": [
+      {
+        "serial": "10000000eefdd0d5",
+        "port": "6",
+        "location": "Club29M 03",
+        "group": "Club29M"
+      }
+    ]
+  },
+  {
+    "venue": "Dicks Sporting Goods Park",
+    "switches": [
+      {
+        "serial": "100000001cb38a40",
+        "port": "10",
+        "location": "102M 05",
+        "group": "102M"
+      },
+      {
+        "serial": "100000007a3c25fb",
+        "port": "32",
+        "location": "121W 01",
+        "group": "121W"
+      },
+      {
+        "serial": "100000003967bfcf",
+        "port": "10",
+        "location": "Suite01W 02",
+        "group": "Suite01W"
+      }
+    ]
+  },
+  {
+    "venue": "Enterprise Center",
+    "switches": [
+      {
+        "serial": "1000000039572959",
+        "port": "N/A",
+        "location": "101W 01",
+        "group": "101 Womens"
+      },
+      {
+        "serial": "10000000240cce96",
+        "port": "N/A",
+        "location": "101W 02",
+        "group": "101 Womens"
+      },
+      {
+        "serial": "10000000b5660cad",
+        "port": "N/A",
+        "location": "101W 03",
+        "group": "101 Womens"
+      },
+      {
+        "serial": "10000000308cb371",
+        "port": "N/A",
+        "location": "101W 04",
+        "group": "101 Womens"
+      },
+      {
+        "serial": "1000000096792592",
+        "port": "N/A",
+        "location": "101W 05**",
+        "group": "101 Womens"
+      },
+      {
+        "serial": "100000005dbd4199",
+        "port": "N/A",
+        "location": "101W 06",
+        "group": "101 Womens"
+      },
+      {
+        "serial": "100000002a557017",
+        "port": "N/A",
+        "location": "105W 02**",
+        "group": "105 Womens"
+      },
+      {
+        "serial": "1000000006a24235",
+        "port": "N/A",
+        "location": "110W 01",
+        "group": "110 Womens"
+      },
+      {
+        "serial": "100000009af98bf6",
+        "port": "N/A",
+        "location": "110W 02",
+        "group": "110 Womens"
+      },
+      {
+        "serial": "1000000036a57855",
+        "port": "N/A",
+        "location": "110W 03",
+        "group": "110 Womens"
+      },
+      {
+        "serial": "1000000031f46d01",
+        "port": "N/A",
+        "location": "110W 04",
+        "group": "110 Womens"
+      },
+      {
+        "serial": "00000000aa12f100",
+        "port": "N/A",
+        "location": "307M 008",
+        "group": "307 Mens"
+      },
+      {
+        "serial": "00000000622f1b51",
+        "port": "N/A",
+        "location": "313M 006",
+        "group": "313 Mens"
+      },
+      {
+        "serial": "00000000b057b2b5",
+        "port": "N/A",
+        "location": "313M 009",
+        "group": "313 Mens"
+      },
+      {
+        "serial": "00000000c1ff87c4",
+        "port": "N/A",
+        "location": "314W 006",
+        "group": "314 Womens"
+      }
+    ]
+  },
+  {
+    "venue": "Maryland - Xfinity Center",
+    "switches": [
+      {
+        "serial": "10000000e25d9e8d",
+        "port": "13",
+        "location": "116W 04",
+        "group": "116W (2311)"
+      },
+      {
+        "serial": "1000000005362714",
+        "port": "28",
+        "location": "215W 01",
+        "group": "215W (3312)"
+      }
+    ]
+  },
+  {
+    "venue": "Mizzou Arena",
+    "switches": [
+      {
+        "serial": "10000000f625ae8c",
+        "port": "2",
+        "location": "104W 01",
+        "group": "104 Womens"
+      },
+      {
+        "serial": "100000004648cf64",
+        "port": "32",
+        "location": "108W 01",
+        "group": "108 Womens"
+      },
+      {
+        "serial": "10000000ba3aad84",
+        "port": "4",
+        "location": "113W 02",
+        "group": "113 Womens"
+      }
+    ]
+  },
+  {
+    "venue": "Old Dominion - Chartway Arena",
+    "switches": [
+      {
+        "serial": "1000000080cd2645",
+        "port": "3",
+        "location": "101W 02",
+        "group": "101W"
+      }
+    ]
+  },
+  {
+    "venue": "Penn State: Bryce Jordan Center",
+    "switches": [
+      {
+        "serial": "10000000177bc9c8",
+        "port": "10",
+        "location": "120M 05",
+        "group": "120M"
+      },
+      {
+        "serial": "10000000a0705335",
+        "port": "N/A",
+        "location": "129W 03",
+        "group": "129W"
+      }
+    ]
+  },
+  {
+    "venue": "Providence Park",
+    "switches": [
+      {
+        "serial": "00000000f8260b76",
+        "port": "6",
+        "location": "098M-03",
+        "group": "098M"
+      },
+      {
+        "serial": "00000000eeef1620",
+        "port": "18",
+        "location": "098W-01",
+        "group": "098W"
+      }
+    ]
+  },
+  {
+    "venue": "Shell Energy Stadium",
+    "switches": [
+      {
+        "serial": "100000001dc5ee9a",
+        "port": "3",
+        "location": "208M 02",
+        "group": "208M"
+      },
+      {
+        "serial": "1000000057e75cf7",
+        "port": "30",
+        "location": "EastClubW 03",
+        "group": "EastClubW"
+      }
+    ]
+  },
+  {
+    "venue": "Subaru Park",
+    "switches": [
+      {
+        "serial": "10000000eb15731d",
+        "port": "14",
+        "location": "128M 07",
+        "group": "128M"
+      },
+      {
+        "serial": "10000000a60b8b10",
+        "port": "11",
+        "location": "131M 06",
+        "group": "131M"
+      }
+    ]
+  },
+  {
+    "venue": "UNC - Dean Smith Center",
+    "switches": [
+      {
+        "serial": "00000000938f13b2",
+        "port": "2",
+        "location": "110M 01",
+        "group": "110M"
+      },
+      {
+        "serial": "000000005089e654",
+        "port": "4",
+        "location": "110M 02",
+        "group": "110M"
+      },
+      {
+        "serial": "0000000019ec9f17",
+        "port": "6",
+        "location": "110M 03*",
+        "group": "110M"
+      },
+      {
+        "serial": "000000002229f2c0",
+        "port": "8",
+        "location": "110M 04",
+        "group": "110M"
+      },
+      {
+        "serial": "00000000fbd3e99c",
+        "port": "10",
+        "location": "110M 05",
+        "group": "110M"
+      },
+      {
+        "serial": "00000000df0e6ce9",
+        "port": "12",
+        "location": "110M 06*",
+        "group": "110M"
+      },
+      {
+        "serial": "00000000408de959",
+        "port": "2",
+        "location": "110M 07",
+        "group": "110M"
+      },
+      {
+        "serial": "00000000c976de07",
+        "port": "4",
+        "location": "110M 08",
+        "group": "110M"
+      },
+      {
+        "serial": "00000000141c7809",
+        "port": "6",
+        "location": "110M 09*",
+        "group": "110M"
+      },
+      {
+        "serial": "0000000083165767",
+        "port": "8",
+        "location": "110M 10",
+        "group": "110M"
+      },
+      {
+        "serial": "00000000a622b3ce",
+        "port": "10",
+        "location": "110M 11",
+        "group": "110M"
+      }
+    ]
+  },
+  {
+    "venue": "Villanova - Finneran Pavilion",
+    "switches": [
+      {
+        "serial": "10000000bc16c48f",
+        "port": "4",
+        "location": "210M 02",
+        "group": "210M"
+      }
+    ]
+  },
+  {
+    "venue": "Virginia - John Paul Jones",
+    "switches": [
+      {
+        "serial": "10000000c23c1af6",
+        "port": "3",
+        "location": "105M 02",
+        "group": "105M (T-255)"
+      },
+      {
+        "serial": "10000000f063cbe1",
+        "port": "14",
+        "location": "310W 03",
+        "group": "310W (T-302)"
+      },
+      {
+        "serial": "10000000cf389628",
+        "port": "2",
+        "location": "311W2 01",
+        "group": "311W2 (T-304)"
+      },
+      {
+        "serial": "1000000022c4d887",
+        "port": "4",
+        "location": "311W2 02",
+        "group": "311W2 (T-304)"
+      },
+      {
+        "serial": "100000003dd90f36",
+        "port": "8",
+        "location": "314W 01",
+        "group": "314W (T-312)"
+      },
+      {
+        "serial": "10000000a5b2c412",
+        "port": "10",
+        "location": "314W 02",
+        "group": "314W (T-312)"
+      }
+    ]
+  },
+  {
+    "venue": "Virginia Tech - Cassell Coliseum",
+    "switches": [
+      {
+        "serial": "10000000cf007a53",
+        "port": "11",
+        "location": "112M 06",
+        "group": "112M"
+      }
+    ]
+  }
+]
