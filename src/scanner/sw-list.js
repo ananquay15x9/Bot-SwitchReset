@@ -43,7 +43,7 @@ if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
         v.name !== 'iSite Office' &&
         v.name !== 'Mizzou: Faurot Field' &&
         v.name !== 'Capital One Arena' &&
-        v.name !== 'Grand Casino Arena'
+        v.name !== 'Enterprise Center'
     ); // skip iSite Office and Mizzou Faurot Field
   });
 
@@ -53,38 +53,50 @@ if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
   for (const venue of venues) {
     console.log(`Pulling ${venue.name}...`);
     const cacheBuster = `${venue.url}${venue.url.includes('?') ? '&' : '?'}t=${Date.now()}`;
-    await page.goto(cacheBuster, { waitUntil: 'networkidle' });
 
-    await page.waitForSelector('#sort_table tbody tr', { timeout: 15000 });
+    try {
+    	await page.goto(cacheBuster, {
+    		waitUntil: 'domcontentloaded',
+    		timeout: 45000
+    	});
 
-    const switches = await page.evaluate(() => {
-      const rows = Array.from(document.querySelectorAll('#sort_table tbody tr'));
+    	await page.waitForSelector('#sort_table tbody tr', { timeout: 15000 });
+
+    	await page.waitForTimeout(1500);
+
+    
+
+	    const switches = await page.evaluate(() => {
+	      const rows = Array.from(document.querySelectorAll('#sort_table tbody tr'));
       
-      return rows.map(row => {
-        const cells = row.querySelectorAll('td');
+	      return rows.map(row => {
+	        const cells = row.querySelectorAll('td');
 
         
-        const piSerial = cells[7]?.innerText.trim() || "";
-        const location = cells[1]?.innerText.trim() || "";
-        const portRaw = cells[3]?.innerText.trim() || "";
-        const group = cells[5]?.innerText.trim() || "";
+	        const piSerial = cells[7]?.innerText.trim() || "";
+	        const location = cells[1]?.innerText.trim() || "";
+	        const portRaw = cells[3]?.innerText.trim() || "";
+	        const group = cells[5]?.innerText.trim() || "";
 
-        const portMatch = portRaw.match(/Port\s+(\d+)/i);
-        
-        return {
-          serial: piSerial,
-          port: portMatch ? portMatch[1] : "N/A",
-          location: location,
-          group: group
-        };
-      }).filter(s => s.serial && s.serial.length > 5); 
-    });
+	        const portMatch = portRaw.match(/Port\s+(\d+)/i);
+	        
+	        return {
+	          serial: piSerial,
+	          port: portMatch ? portMatch[1] : "N/A",
+	          location: location,
+	          group: group
+	        };
+	      }).filter(s => s.serial && s.serial.length > 5); 
+	    });
 
-    finalOutput.push({
-      venue: venue.name,
-      switches: switches
-    });
-  }
+	    finalOutput.push({
+	      venue: venue.name,
+	      switches: switches
+	    });
+  	} catch (venueErr) {
+  		console.log(`❌ Skipped or timed out scanning data grid layout for ${venue.name}: ${venueErr.message}`);
+  	}
+ }
 
   // write to json
   fs.writeFileSync(SCAN_FILE, JSON.stringify(finalOutput, null, 2));

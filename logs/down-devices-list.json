@@ -1,162 +1,64 @@
 [
   {
+    "venue": "Allianz Field",
+    "switches": [
+      {
+        "serial": "100000005f24dabd",
+        "port": "12",
+        "location": "03W 02",
+        "group": "03W"
+      },
+      {
+        "serial": "1000000012514fbc",
+        "port": "7",
+        "location": "15M 04",
+        "group": "15M"
+      },
+      {
+        "serial": "10000000aa5107ac",
+        "port": "21",
+        "location": "21M 11",
+        "group": "21M"
+      },
+      {
+        "serial": "10000000d5c10e04",
+        "port": "N/A",
+        "location": "23W 05",
+        "group": "23W"
+      }
+    ]
+  },
+  {
     "venue": "Amerant Bank Arena",
     "switches": [
       {
-        "serial": "00000000311b4092",
-        "port": "N/A",
-        "location": "326M 01",
-        "group": "326M"
+        "serial": "00000000cd86e93f",
+        "port": "16",
+        "location": "112M 04",
+        "group": "112M"
       },
       {
-        "serial": "00000000499163a6",
-        "port": "13",
-        "location": "326M 02",
-        "group": "326M"
+        "serial": "00000000195c5cc9",
+        "port": "2",
+        "location": "128W 04",
+        "group": "128W"
       },
       {
-        "serial": "00000000bc259f03",
-        "port": "N/A",
-        "location": "326M 03",
-        "group": "326M"
-      },
+        "serial": "00000000b5475ead",
+        "port": "2",
+        "location": "322W 04",
+        "group": "322W"
+      }
+    ]
+  },
+  {
+    "venue": "America First Field",
+    "switches": [
       {
-        "serial": "000000006fee5574",
-        "port": "N/A",
-        "location": "326M 04",
-        "group": "326M"
-      },
-      {
-        "serial": "000000008bb9c4a5",
-        "port": "N/A",
-        "location": "326M 05",
-        "group": "326M"
-      },
-      {
-        "serial": "00000000f341a354",
-        "port": "N/A",
-        "location": "326M 06",
-        "group": "326M"
-      },
-      {
-        "serial": "00000000eedb7439",
-        "port": "N/A",
-        "location": "326M 07",
-        "group": "326M"
-      },
-      {
-        "serial": "00000000c261b7e9",
-        "port": "N/A",
-        "location": "326M 08",
-        "group": "326M"
-      },
-      {
-        "serial": "00000000c39b0e9b",
-        "port": "8",
-        "location": "328W 01",
-        "group": "328W"
-      },
-      {
-        "serial": "000000006909dfb0",
-        "port": "6",
-        "location": "328W 02",
-        "group": "328W"
-      },
-      {
-        "serial": "0000000071fe0c3b",
-        "port": "4",
-        "location": "328W 03",
-        "group": "328W"
-      },
-      {
-        "serial": "000000006afad72f",
-        "port": "N/A",
-        "location": "328W 04",
-        "group": "328W"
-      },
-      {
-        "serial": "00000000651b6c3d",
-        "port": "N/A",
-        "location": "332M 01",
-        "group": "332M"
-      },
-      {
-        "serial": "0000000026b035cd",
-        "port": "4",
-        "location": "332M 02",
-        "group": "332M"
-      },
-      {
-        "serial": "00000000f471640c",
-        "port": "6",
-        "location": "332M 03",
-        "group": "332M"
-      },
-      {
-        "serial": "00000000a9cf541f",
-        "port": "N/A",
-        "location": "332M 04",
-        "group": "332M"
-      },
-      {
-        "serial": "000000000a41bfe8",
+        "serial": "0000000081830e1d",
         "port": "10",
-        "location": "332M 05",
-        "group": "332M"
-      },
-      {
-        "serial": "00000000b5a086f7",
-        "port": "N/A",
-        "location": "332M 06",
-        "group": "332M"
-      },
-      {
-        "serial": "0000000018da77fc",
-        "port": "N/A",
-        "location": "332M 07",
-        "group": "332M"
-      },
-      {
-        "serial": "00000000623e924b",
-        "port": "12",
-        "location": "332W 01",
-        "group": "332W"
-      },
-      {
-        "serial": "00000000d9539d0a",
-        "port": "N/A",
-        "location": "332W 02",
-        "group": "332W"
-      },
-      {
-        "serial": "000000006dba1ed9",
-        "port": "8",
-        "location": "332W 03",
-        "group": "332W"
-      },
-      {
-        "serial": "00000000df662e71",
-        "port": "N/A",
-        "location": "332W 04",
-        "group": "332W"
-      },
-      {
-        "serial": "00000000b2217ab9",
-        "port": "4",
-        "location": "332W 05",
-        "group": "332W"
-      },
-      {
-        "serial": "00000000c57d8ee5",
-        "port": "N/A",
-        "location": "332W 06",
-        "group": "332W"
-      },
-      {
-        "serial": "0000000088424772",
-        "port": "N/A",
-        "location": "332W 07",
-        "group": "332W"
+        "location": "03M-21",
+        "group": "03M"
       }
     ]
   },
@@ -168,28 +70,101 @@
         "port": "12",
         "location": "110M 06",
         "group": "110M"
-      }
-    ]
-  },
-  {
-    "venue": "Baylor - Foster Pavilion",
-    "switches": [
+      },
       {
-        "serial": "10000000b1cddfe3",
-        "port": "7",
-        "location": "121W 04",
-        "group": "121W"
-      }
-    ]
-  },
-  {
-    "venue": "Canada Life Centre",
-    "switches": [
-      {
-        "serial": "10000000eefdd0d5",
+        "serial": "100000006537d3ef",
         "port": "6",
-        "location": "Club29M 03",
-        "group": "Club29M"
+        "location": "EGM 03",
+        "group": "EGM"
+      },
+      {
+        "serial": "10000000dd483395",
+        "port": "7",
+        "location": "EGM 04",
+        "group": "EGM"
+      }
+    ]
+  },
+  {
+    "venue": "Butler - Hinkle Fieldhouse",
+    "switches": [
+      {
+        "serial": "100000006933d662",
+        "port": "N/A",
+        "location": "120W 04",
+        "group": "120W"
+      },
+      {
+        "serial": "100000002b93ac27",
+        "port": "N/A",
+        "location": "206M 02",
+        "group": "206M"
+      },
+      {
+        "serial": "1000000030fb2d64",
+        "port": "N/A",
+        "location": "206M 03",
+        "group": "206M"
+      },
+      {
+        "serial": "100000003dbd0cc4",
+        "port": "N/A",
+        "location": "206M 05",
+        "group": "206M"
+      },
+      {
+        "serial": "100000002492c197",
+        "port": "11",
+        "location": "206M 06",
+        "group": "206M"
+      },
+      {
+        "serial": "100000003801243e",
+        "port": "N/A",
+        "location": "206W 02",
+        "group": "206W"
+      },
+      {
+        "serial": "100000007bf4a9cd",
+        "port": "N/A",
+        "location": "206W 03",
+        "group": "206W"
+      },
+      {
+        "serial": "10000000b5c13edf",
+        "port": "N/A",
+        "location": "218M 04",
+        "group": "218M"
+      },
+      {
+        "serial": "100000004ee22f74",
+        "port": "N/A",
+        "location": "218M 06",
+        "group": "218M"
+      },
+      {
+        "serial": "10000000ce898026",
+        "port": "N/A",
+        "location": "218W 02",
+        "group": "218W"
+      },
+      {
+        "serial": "100000007e7341b4",
+        "port": "N/A",
+        "location": "218W 03",
+        "group": "218W"
+      },
+      {
+        "serial": "1000000095c6522a",
+        "port": "N/A",
+        "location": "ClubW 03",
+        "group": "ClubW"
+      },
+      {
+        "serial": "1000000087b6be83",
+        "port": "13",
+        "location": "ClubW 04",
+        "group": "ClubW"
       }
     ]
   },
@@ -197,16 +172,238 @@
     "venue": "Dicks Sporting Goods Park",
     "switches": [
       {
-        "serial": "100000001cb38a40",
-        "port": "10",
-        "location": "102M 05",
-        "group": "102M"
+        "serial": "10000000804971c7",
+        "port": "N/A",
+        "location": "110W 01",
+        "group": "110W"
       },
       {
-        "serial": "100000007a3c25fb",
-        "port": "32",
-        "location": "121W 01",
-        "group": "121W"
+        "serial": "1000000001a40f5f",
+        "port": "4",
+        "location": "110W 02",
+        "group": "110W"
+      },
+      {
+        "serial": "10000000eff8da6e",
+        "port": "N/A",
+        "location": "110W 03",
+        "group": "110W"
+      },
+      {
+        "serial": "1000000072d2ba3d",
+        "port": "N/A",
+        "location": "110W 04",
+        "group": "110W"
+      },
+      {
+        "serial": "100000008044b974",
+        "port": "N/A",
+        "location": "110W 05",
+        "group": "110W"
+      },
+      {
+        "serial": "100000000d90f542",
+        "port": "30",
+        "location": "114W 03",
+        "group": "114W"
+      },
+      {
+        "serial": "10000000be01d840",
+        "port": "N/A",
+        "location": "115M 07",
+        "group": "115M"
+      },
+      {
+        "serial": "100000000daedff3",
+        "port": "N/A",
+        "location": "126W 01",
+        "group": "126W"
+      },
+      {
+        "serial": "10000000a2eda3eb",
+        "port": "4",
+        "location": "126W 02",
+        "group": "126W"
+      },
+      {
+        "serial": "1000000059ce5572",
+        "port": "6",
+        "location": "126W 03",
+        "group": "126W"
+      },
+      {
+        "serial": "100000009f68e74c",
+        "port": "N/A",
+        "location": "126W 04",
+        "group": "126W"
+      },
+      {
+        "serial": "100000005af838c9",
+        "port": "10",
+        "location": "126W 05",
+        "group": "126W"
+      },
+      {
+        "serial": "1000000028e7985d",
+        "port": "2",
+        "location": "131W 01",
+        "group": "131W"
+      },
+      {
+        "serial": "100000007575a55d",
+        "port": "4",
+        "location": "131W 02",
+        "group": "131W"
+      },
+      {
+        "serial": "100000001d9d2430",
+        "port": "N/A",
+        "location": "131W 03",
+        "group": "131W"
+      },
+      {
+        "serial": "10000000fef2d605",
+        "port": "N/A",
+        "location": "131W 04",
+        "group": "131W"
+      },
+      {
+        "serial": "10000000760b05f6",
+        "port": "N/A",
+        "location": "131W 05",
+        "group": "131W"
+      },
+      {
+        "serial": "10000000637e0106",
+        "port": "N/A",
+        "location": "133M 01",
+        "group": "133M"
+      },
+      {
+        "serial": "100000003eff944d",
+        "port": "4",
+        "location": "133M 02",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000273d110c",
+        "port": "6",
+        "location": "133M 03",
+        "group": "133M"
+      },
+      {
+        "serial": "100000000cbd8193",
+        "port": "8",
+        "location": "133M 04",
+        "group": "133M"
+      },
+      {
+        "serial": "1000000007aead9d",
+        "port": "N/A",
+        "location": "133M 05",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000c4894409",
+        "port": "N/A",
+        "location": "133M 06",
+        "group": "133M"
+      },
+      {
+        "serial": "100000003ea311b5",
+        "port": "N/A",
+        "location": "133M 07",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000e6ceae49",
+        "port": "N/A",
+        "location": "133M 08",
+        "group": "133M"
+      },
+      {
+        "serial": "100000006d94076c",
+        "port": "N/A",
+        "location": "133M 09",
+        "group": "133M"
+      },
+      {
+        "serial": "100000000e1f717a",
+        "port": "N/A",
+        "location": "133M 10",
+        "group": "133M"
+      },
+      {
+        "serial": "1000000067763dee",
+        "port": "22",
+        "location": "133M 11",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000b3ae4e8f",
+        "port": "N/A",
+        "location": "133M 12",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000a4c7cdea",
+        "port": "N/A",
+        "location": "133M 13",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000ab8ec9fc",
+        "port": "N/A",
+        "location": "133M 14",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000a951dc69",
+        "port": "N/A",
+        "location": "133M 15",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000979b34c7",
+        "port": "N/A",
+        "location": "133M 16",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000c4e511a7",
+        "port": "N/A",
+        "location": "133M 17",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000b8844383",
+        "port": "N/A",
+        "location": "133M 18",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000e5db0a9f",
+        "port": "N/A",
+        "location": "133M 19",
+        "group": "133M"
+      },
+      {
+        "serial": "100000000300d49a",
+        "port": "N/A",
+        "location": "133M 20",
+        "group": "133M"
+      },
+      {
+        "serial": "10000000a647f3a9",
+        "port": "2",
+        "location": "DalesM 01",
+        "group": "DalesM"
+      },
+      {
+        "serial": "100000005ccb5957",
+        "port": "6",
+        "location": "DalesW 01",
+        "group": "DalesW"
       },
       {
         "serial": "100000003967bfcf",
@@ -217,97 +414,155 @@
     ]
   },
   {
-    "venue": "Enterprise Center",
+    "venue": "Enmarket Arena",
     "switches": [
       {
-        "serial": "1000000039572959",
-        "port": "N/A",
-        "location": "101W 01",
-        "group": "101 Womens"
+        "serial": "100000006b0f3ffc",
+        "port": "4",
+        "location": "41.06M 02",
+        "group": "41.06M"
       },
       {
-        "serial": "10000000240cce96",
-        "port": "N/A",
-        "location": "101W 02",
-        "group": "101 Womens"
+        "serial": "10000000573a5579",
+        "port": "11",
+        "location": "41.07W 02",
+        "group": "41.07W"
       },
       {
-        "serial": "10000000b5660cad",
+        "serial": "10000000342059e4",
         "port": "N/A",
-        "location": "101W 03",
-        "group": "101 Womens"
+        "location": "Suite32.17W 01",
+        "group": "Suite32.17W"
+      }
+    ]
+  },
+  {
+    "venue": "Grand Casino Arena",
+    "switches": [
+      {
+        "serial": "00000000ce4df501",
+        "port": "16",
+        "location": "119W 05",
+        "group": "119W"
       },
       {
-        "serial": "10000000308cb371",
+        "serial": "00000000ece357aa",
+        "port": "11",
+        "location": "213W 02",
+        "group": "213W"
+      }
+    ]
+  },
+  {
+    "venue": "LSU - PMAC",
+    "switches": [
+      {
+        "serial": "10000000328e449c",
         "port": "N/A",
-        "location": "101W 04",
-        "group": "101 Womens"
+        "location": "156W 01",
+        "group": "156W"
       },
       {
-        "serial": "1000000096792592",
-        "port": "N/A",
-        "location": "101W 05**",
-        "group": "101 Womens"
+        "serial": "100000007200a425",
+        "port": "42",
+        "location": "157M 01",
+        "group": "157M"
       },
       {
-        "serial": "100000005dbd4199",
-        "port": "N/A",
-        "location": "101W 06",
-        "group": "101 Womens"
+        "serial": "1000000052743315",
+        "port": "44",
+        "location": "157M 02",
+        "group": "157M"
       },
       {
-        "serial": "100000002a557017",
-        "port": "N/A",
-        "location": "105W 02**",
-        "group": "105 Womens"
+        "serial": "10000000b611641b",
+        "port": "1",
+        "location": "203W 01",
+        "group": "203W"
       },
       {
-        "serial": "1000000006a24235",
-        "port": "N/A",
-        "location": "110W 01",
-        "group": "110 Womens"
+        "serial": "10000000a681e56b",
+        "port": "3",
+        "location": "203W 02",
+        "group": "203W"
       },
       {
-        "serial": "100000009af98bf6",
-        "port": "N/A",
-        "location": "110W 02",
-        "group": "110 Womens"
+        "serial": "100000005cc30ed0",
+        "port": "6",
+        "location": "203W 03",
+        "group": "203W"
       },
       {
-        "serial": "1000000036a57855",
-        "port": "N/A",
-        "location": "110W 03",
-        "group": "110 Womens"
+        "serial": "10000000953239ba",
+        "port": "9",
+        "location": "204W 01",
+        "group": "204W"
       },
       {
-        "serial": "1000000031f46d01",
-        "port": "N/A",
-        "location": "110W 04",
-        "group": "110 Womens"
+        "serial": "10000000abc40915",
+        "port": "11",
+        "location": "204W 02",
+        "group": "204W"
       },
       {
-        "serial": "00000000aa12f100",
-        "port": "N/A",
-        "location": "307M 008",
-        "group": "307 Mens"
+        "serial": "1000000060f25768",
+        "port": "13",
+        "location": "204W 03",
+        "group": "204W"
       },
       {
-        "serial": "00000000622f1b51",
-        "port": "N/A",
-        "location": "313M 006",
-        "group": "313 Mens"
+        "serial": "100000009a10205a",
+        "port": "4",
+        "location": "211W 02",
+        "group": "211W"
       },
       {
-        "serial": "00000000b057b2b5",
-        "port": "N/A",
-        "location": "313M 009",
-        "group": "313 Mens"
+        "serial": "10000000c9cd6ed5",
+        "port": "17",
+        "location": "217W 01",
+        "group": "217W"
       },
       {
-        "serial": "00000000c1ff87c4",
-        "port": "N/A",
-        "location": "314W 006",
-        "group": "314 Womens"
+        "serial": "10000000a350342b",
+        "port": "19",
+        "location": "217W 02",
+        "group": "217W"
+      },
+      {
+        "serial": "10000000523e1b8e",
+        "port": "22",
+        "location": "217W 03",
+        "group": "217W"
+      },
+      {
+        "serial": "100000004eb1f006",
+        "port": "26",
+        "location": "218M 01",
+        "group": "218M"
+      },
+      {
+        "serial": "10000000672f1885",
+        "port": "27",
+        "location": "218M 02",
+        "group": "218M"
+      },
+      {
+        "serial": "10000000e904348a",
+        "port": "29",
+        "location": "218M 03",
+        "group": "218M"
+      },
+      {
+        "serial": "100000009dc79c03",
+        "port": "31",
+        "location": "218M 04",
+        "group": "218M"
+      },
+      {
+        "serial": "10000000a123c50d",
+        "port": "33",
+        "location": "218M 05",
+        "group": "218M"
       }
     ]
   },
@@ -315,16 +570,16 @@
     "venue": "Maryland - Xfinity Center",
     "switches": [
       {
-        "serial": "10000000e25d9e8d",
-        "port": "13",
-        "location": "116W 04",
-        "group": "116W (2311)"
+        "serial": "10000000db018c43",
+        "port": "14",
+        "location": "104W 04",
+        "group": "104W (2115)"
       },
       {
-        "serial": "1000000005362714",
-        "port": "28",
-        "location": "215W 01",
-        "group": "215W (3312)"
+        "serial": "1000000057a4b180",
+        "port": "N/A",
+        "location": "105M 04",
+        "group": "105M (2108)"
       }
     ]
   },
@@ -332,10 +587,10 @@
     "venue": "Mizzou Arena",
     "switches": [
       {
-        "serial": "10000000f625ae8c",
-        "port": "2",
-        "location": "104W 01",
-        "group": "104 Womens"
+        "serial": "10000000d956da25",
+        "port": "6",
+        "location": "106M 03",
+        "group": "106 Mens"
       },
       {
         "serial": "100000004648cf64",
@@ -359,6 +614,12 @@
         "port": "3",
         "location": "101W 02",
         "group": "101W"
+      },
+      {
+        "serial": "10000000a5063c94",
+        "port": "40",
+        "location": "106M 01",
+        "group": "106M"
       }
     ]
   },
@@ -366,16 +627,58 @@
     "venue": "Penn State: Bryce Jordan Center",
     "switches": [
       {
-        "serial": "10000000177bc9c8",
-        "port": "10",
-        "location": "120M 05",
-        "group": "120M"
+        "serial": "10000000f4ada2de",
+        "port": "18",
+        "location": "103M 09",
+        "group": "103M"
       },
       {
-        "serial": "10000000a0705335",
-        "port": "N/A",
-        "location": "129W 03",
-        "group": "129W"
+        "serial": "10000000b48392d9",
+        "port": "20",
+        "location": "103M 10",
+        "group": "103M"
+      },
+      {
+        "serial": "10000000abcefb66",
+        "port": "22",
+        "location": "103M 11",
+        "group": "103M"
+      },
+      {
+        "serial": "1000000001085378",
+        "port": "24",
+        "location": "103M 12",
+        "group": "103M"
+      },
+      {
+        "serial": "10000000a480d977",
+        "port": "34",
+        "location": "127W 01",
+        "group": "127W"
+      },
+      {
+        "serial": "10000000a6361d89",
+        "port": "35",
+        "location": "127W 02",
+        "group": "127W"
+      },
+      {
+        "serial": "1000000031e2c003",
+        "port": "38",
+        "location": "127W 03",
+        "group": "127W"
+      },
+      {
+        "serial": "100000000e300083",
+        "port": "39",
+        "location": "127W 04",
+        "group": "127W"
+      },
+      {
+        "serial": "1000000070a1b11c",
+        "port": "42",
+        "location": "127W 05",
+        "group": "127W"
       }
     ]
   },
@@ -387,12 +690,6 @@
         "port": "6",
         "location": "098M-03",
         "group": "098M"
-      },
-      {
-        "serial": "00000000eeef1620",
-        "port": "18",
-        "location": "098W-01",
-        "group": "098W"
       }
     ]
   },
@@ -400,16 +697,22 @@
     "venue": "Shell Energy Stadium",
     "switches": [
       {
-        "serial": "100000001dc5ee9a",
-        "port": "3",
-        "location": "208M 02",
-        "group": "208M"
+        "serial": "10000000a55d4dc9",
+        "port": "1",
+        "location": "210W 01",
+        "group": "210W"
       },
       {
-        "serial": "1000000057e75cf7",
-        "port": "30",
-        "location": "EastClubW 03",
-        "group": "EastClubW"
+        "serial": "100000008198d613",
+        "port": "4",
+        "location": "210W 02",
+        "group": "210W"
+      },
+      {
+        "serial": "1000000021f76819",
+        "port": "6",
+        "location": "210W 03",
+        "group": "210W"
       }
     ]
   },
@@ -431,79 +734,96 @@
     ]
   },
   {
+    "venue": "TQL Stadium",
+    "switches": [
+      {
+        "serial": "000000008d29d542",
+        "port": "12",
+        "location": "213W-01",
+        "group": "213W"
+      },
+      {
+        "serial": "0000000075e98169",
+        "port": "7",
+        "location": "232M-04",
+        "group": "232M"
+      },
+      {
+        "serial": "00000000b0737fac",
+        "port": "12",
+        "location": "232M-06",
+        "group": "232M"
+      },
+      {
+        "serial": "0000000037c52e61",
+        "port": "15",
+        "location": "232M-08",
+        "group": "232M"
+      }
+    ]
+  },
+  {
     "venue": "UNC - Dean Smith Center",
     "switches": [
       {
-        "serial": "00000000938f13b2",
-        "port": "2",
-        "location": "110M 01",
-        "group": "110M"
+        "serial": "00000000310fc6c8",
+        "port": "N/A",
+        "location": "101M 07*",
+        "group": "101M"
       },
       {
-        "serial": "000000005089e654",
-        "port": "4",
-        "location": "110M 02",
-        "group": "110M"
+        "serial": "00000000af407ceb",
+        "port": "11",
+        "location": "101M 08",
+        "group": "101M"
       },
       {
-        "serial": "0000000019ec9f17",
-        "port": "6",
-        "location": "110M 03*",
-        "group": "110M"
+        "serial": "000000000130dd28",
+        "port": "3",
+        "location": "101M 12",
+        "group": "101M"
       },
       {
-        "serial": "000000002229f2c0",
-        "port": "8",
-        "location": "110M 04",
-        "group": "110M"
-      },
-      {
-        "serial": "00000000fbd3e99c",
+        "serial": "000000008bf6dde0",
         "port": "10",
-        "location": "110M 05",
-        "group": "110M"
+        "location": "127M 03",
+        "group": "127M"
       },
       {
-        "serial": "00000000df0e6ce9",
-        "port": "12",
-        "location": "110M 06*",
-        "group": "110M"
+        "serial": "000000004bd8f9ab",
+        "port": "7",
+        "location": "127M 05",
+        "group": "127M"
       },
       {
-        "serial": "00000000408de959",
-        "port": "2",
-        "location": "110M 07",
-        "group": "110M"
+        "serial": "000000003d058f01",
+        "port": "5",
+        "location": "127M 06",
+        "group": "127M"
       },
       {
-        "serial": "00000000c976de07",
-        "port": "4",
-        "location": "110M 08",
-        "group": "110M"
-      },
-      {
-        "serial": "00000000141c7809",
+        "serial": "00000000e128e643",
         "port": "6",
-        "location": "110M 09*",
-        "group": "110M"
-      },
-      {
-        "serial": "0000000083165767",
-        "port": "8",
-        "location": "110M 10",
-        "group": "110M"
-      },
-      {
-        "serial": "00000000a622b3ce",
-        "port": "10",
-        "location": "110M 11",
-        "group": "110M"
+        "location": "127M 09",
+        "group": "127M"
       }
     ]
   },
   {
     "venue": "Villanova - Finneran Pavilion",
     "switches": [
+      {
+        "serial": "10000000cfaed5aa",
+        "port": "6",
+        "location": "203M 03",
+        "group": "203M"
+      },
+      {
+        "serial": "10000000a3fda31a",
+        "port": "8",
+        "location": "203M 04",
+        "group": "203M"
+      },
       {
         "serial": "10000000bc16c48f",
         "port": "4",
@@ -520,12 +840,6 @@
         "port": "3",
         "location": "105M 02",
         "group": "105M (T-255)"
-      },
-      {
-        "serial": "10000000f063cbe1",
-        "port": "14",
-        "location": "310W 03",
-        "group": "310W (T-302)"
       },
       {
         "serial": "10000000cf389628",
@@ -550,6 +864,18 @@
         "port": "10",
         "location": "314W 02",
         "group": "314W (T-312)"
+      },
+      {
+        "serial": "1000000013505f37",
+        "port": "3",
+        "location": "EventM 02",
+        "group": "EventM (T-250)"
+      },
+      {
+        "serial": "100000003e252bc7",
+        "port": "5",
+        "location": "EventW 03",
+        "group": "EventW (T-259)"
       }
     ]
   },

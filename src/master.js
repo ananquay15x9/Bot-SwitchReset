@@ -5,8 +5,40 @@ const axios = require('axios');
 const readline = require('readline');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const TG_TOKEN = process.env.TELEGRAM_TOKEN;
-const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+function purgeOldLogs() {
+    const LOGS_FOLDER = path.join(__dirname, '../logs');
+    if (!fs.existsSync(LOGS_FOLDER)) return;
+    const cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    fs.readdirSync(LOGS_FOLDER)
+        .filter(f => f.startsWith('history-log-') && f.endsWith('.json'))
+        .forEach(f => {
+            const filePath = path.join(LOGS_FOLDER, f);
+            if (fs.statSync(filePath).mtimeMs < cutoff) {
+                fs.unlinkSync(filePath);
+                console.log(`🧹 Purged old log: ${f}`);
+            }
+        });
+}
+purgeOldLogs();
+
+const TG_TOKEN = process.env.TELEGRAM_TEST_TOKEN;
+const TG_CHAT_ID = process.env.TELEGRAM_TEST_ID;
+// GUARDTEST
+const LOCK_FILE = path.join(__dirname, '../.bot.lock');
+if (fs.existsSync(LOCK_FILE)) {
+	const oldPid = fs.readFileSync(LOCK_FILE, 'utf8').trim();
+	try {
+		process.kill(parseInt(oldPid), 0); // check if that PID still alive
+		console.error(`Another instance is already running (PID ${oldPid}). Exiting.`);
+		process.exit(1);
+	} catch (e) {
+		// PID is dead, safe to overwrite
+	}
+}
+fs.writeFileSync(LOCK_FILE, String(process.pid));
+process.on('exit', () => { try { fs.unlinkSync(LOCK_FILE); } catch (e) {} });
+process.on('SIGINT', () => process.exit());
+process.on('SIGTERM', () => process.exit());
 
 const LOGS_DIR = path.join(__dirname, '../logs');
 const REPORTS_DIR = path.join(LOGS_DIR, 'reports');
@@ -84,20 +116,32 @@ function chunkTelegramMessage(message, maxLength = 4000) {
     return chunks;
 }
 
-async function sendTelegram(message) {
+async function sendTelegram(message, retries = 4) {
     const url = `https://api.telegram.org/bot${TG_TOKEN}/sendMessage`;
     const chunks = Array.isArray(message) ? message : chunkTelegramMessage(message);
 
     for (const chunk of chunks) {
-        try {
-            await axios.post(url, {
-                chat_id: TG_CHAT_ID,
-                text: chunk,
-                parse_mode: 'Markdown'
-            });
-            await new Promise((resolve) => setTimeout(resolve, 200));
-        } catch (e) {
-            console.error("❌ Telegram error:", e.response ? e.response.data : e.message);
+        let sent = false;
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                await axios.post(url, {
+                    chat_id: TG_CHAT_ID,
+                    text: chunk,
+                    parse_mode: 'Markdown'
+                });
+                sent = true;
+                await new Promise(r => setTimeout(r, 200));
+                break;
+            } catch (e) {
+                const isNetworkError = e.code === 'EAI_AGAIN' || e.code === 'ECONNRESET' || e.code === 'ETIMEDOUT';
+                if (isNetworkError && attempt < retries) {
+                    console.error(`⚠ Telegram network error (attempt ${attempt}/${retries}), waiting 8s...`);
+                    await new Promise(r => setTimeout(r, 8000));
+                } else {
+                    console.error("❌ Telegram error:", e.response ? e.response.data : e.message);
+                    break;
+                }
+            }
         }
     }
 }
@@ -190,7 +234,24 @@ function generateReportChunks() {
 }
 
 function generateDeadReport() {
-    const history = getHistory();
+    // read from today's log
+    const LOGS_FOLDER = path.join(__dirname, '../logs');
+    const today = new Date().toLocaleDateString("en-US", { timeZone: "America/Chicago" }).replace(/\//g, '-');
+    const todayFile = path.join(LOGS_FOLDER, `history-log-${today}.json`);
+
+    if (!fs.existsSync(todayFile)) {
+        return "✅ No reset session has run today yet — no failures to report.";
+    }
+
+    let fileData;
+    try {
+        fileData = JSON.parse(fs.readFileSync(todayFile, 'utf8'));
+    } catch (e) {
+        return "⚠️ Could not read today's log file.";
+    }
+
+    const history = { outage_summary: fileData.outage_summary || {} };
+
     let deadCount = 0;
     const groupedDead = {};
 
@@ -222,12 +283,15 @@ function generateDeadReport() {
         deadBody += `👎 **${venue}**\n${devices.join('\n')}\n\n`;
     }
 
-    return `💀 **Persistent Failures (Global Summary)**\n\n${deadBody}Total: ${deadCount} devices require manual repair.`;
+    return `💀 **Persistent Failures **\n\n${deadBody}Total: ${deadCount} devices require manual repair.`;
 }
 
 // command option to choose
+let isSubprocessRunning = false;
+
 function runScript(scriptName, args = "") {
     return new Promise((resolve) => {
+        isSubprocessRunning = true;
         console.log(`🚀 Running: node ${scriptName} ${args}`);
         const child = exec(`node ${scriptName} ${args}`);
         
@@ -235,6 +299,7 @@ function runScript(scriptName, args = "") {
         child.stderr.on('data', (data) => console.error(data));
         
         child.on('close', (code) => {
+            isSubprocessRunning = false;
             console.log(`✅ ${scriptName} finished with code ${code}`);
             resolve(code);
         });
@@ -343,10 +408,10 @@ async function startResetting() {
             const botPath = fs.existsSync(path.join(__dirname, 'bots/swbot.js'))
                 ? path.join(__dirname, 'bots/swbot.js')
                 : path.join(__dirname, 'src/bots/swbot.js');
-            await runScript(botPath);
+            await runScript(botPath, `"" ${lastUpdateId}`);
             await sendTelegram("✨ All down devices have been processed through the reset loop.");
         }
-
+        
         // option 4: targeted reset
         else if (text.startsWith('reset ')) {
             if (!fs.existsSync(SCAN_FILE)) {
@@ -376,7 +441,7 @@ async function startResetting() {
                 } else {
                     const target = matches[0].venue;
                     await sendTelegram(`🎯 Target Acquired: **${target}**.\nSending Bot to Netgear to reset specific switch layout.`);
-                    await runScript(botPath, `"${target}"`);
+                    await runScript(botPath, `"${target}" ${lastUpdateId}`);
                     await sendTelegram(`✅ Reset cycle for ${target} complete.`);
                 }
             }
@@ -400,28 +465,34 @@ async function startResetting() {
     }
 
     while (true) {
-        try {
-            const response = await axios.get(`https://api.telegram.org/bot${TG_TOKEN}/getUpdates`, {
-                params: { offset: lastUpdateId + 1, timeout: 5 }
-            });
-
-            const updates = response.data.result;
-            for (const update of updates) {
-                lastUpdateId = update.update_id;
-                const text = update.message?.text?.toLowerCase() || "";
-                if (text) await handleCommand(text);
-            }            
-        } catch (e) {
-            console.error("⚠️ Connection error, retrying...", e.message);
+            if (isSubprocessRunning) {
+                await new Promise(r => setTimeout(r, 3000));
+                continue;
+            }
+            try {
+                const response = await axios.get(`https://api.telegram.org/bot${TG_TOKEN}/getUpdates`, {
+                    params: { offset: lastUpdateId + 1, timeout: 5 }
+                });
+    
+                const updates = response.data.result;
+                for (const update of updates) {
+                    lastUpdateId = update.update_id;
+                    const text = update.message?.text?.toLowerCase() || "";
+                    if (text) await handleCommand(text);
+                }            
+            } catch (e) {
+                if (e?.response?.status !== 409) {
+                    console.error("⚠ Connection error, retrying...", e.message);
+                }
+            }
+            await new Promise(r => setTimeout(r, 3000));
         }
-        await new Promise(r => setTimeout(r, 3000));
-    }
 }
 
 const schedule = require('node-schedule');
 
 function setupScheduler() {
-    const scheduledTimes = ['0 8 * * *', '0 14 * * *', '0 19 * * *'];
+    const scheduledTimes = ['10 9 * * *', '0 14 * * *', '0 19 * * *'];
 
     scheduledTimes.forEach(t => {
         schedule.scheduleJob(t, async () => {
@@ -448,7 +519,7 @@ function setupScheduler() {
             }
         });
     });
-    console.log("📅 Scheduler active: 8:00 AM, 2:00 PM, 7:00 PM.");
+    console.log("📅 Scheduler active: 9:10 AM, 2:00 PM, 7:00 PM.");
 }
 
 
@@ -457,13 +528,14 @@ if (process.argv.includes('--auto')) {
         console.log("🤖 AUTO: Running full scan and reset.");
         await runScript('src/scanner/sw-list.js');
         await runScript('src/bots/swbot.js');
-        process.exit(0); 
+        process.exit(0);
     })();
 } else if (process.argv.includes('--status')) {
-    //status 
-    console.log(generateReport());
+    //status
+    const chunks = generateReportChunks();
+    console.log(Array.isArray(chunks) ? chunks.join('\n') : chunks);
     process.exit(0);
 } else {
-    setupScheduler(); 
-    startResetting(); 
+    setupScheduler();
+    startResetting();
 }
