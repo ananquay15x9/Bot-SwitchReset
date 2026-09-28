@@ -384,7 +384,7 @@ function findVenueMapping(venue) {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
-    // Check if present in the new UI
+    // Check if in the new UI (/organization/...)
     if (!page.url().includes('/classic/')) {
         console.log("🆕 New UI active. Executing recorded profile switch...");
 
@@ -513,8 +513,6 @@ function findVenueMapping(venue) {
 
         try {	
             await killModal();
-            
-            // 1. Make sure it's on the Org_support organization page (it lists all venues)
             const ORG_URL = 'https://insight.netgear.com/classic/#/organization/details/Org_support';
             if (!page.url().includes('/organization/details/Org_support')) {
                 console.log("↩️ Returning to Org_support venue list...");
@@ -558,8 +556,8 @@ function findVenueMapping(venue) {
             console.log("📋 Devices tab loaded.");
 
             for (const sw of venueData.switches) {
-                const targetGroup = serialToNetgear[sw.serial] ||
-                                    venueGroupToNetgear[`${venueData.venue}|${sw.group}`] ||
+                const targetGroup = serialToNetgear[sw.serial] || 
+                                    venueGroupToNetgear[`${venueData.venue}|${sw.group}`] || 
                                     normalizeGroupName(sw.group);
 
                 console.log(`🔍 Device: ${sw.location} -> ${targetGroup} (Serial: ${sw.serial})`);
@@ -568,9 +566,9 @@ function findVenueMapping(venue) {
                     console.log("⬅️ Returning to Dashboard...");
                     await page.goto('https://insight.netgear.com/classic/#/devices/dash');
                     await page.waitForSelector('.ag-root-wrapper', { timeout: 15000 });
-                    await page.waitForTimeout(2000);
+                    await page.waitForTimeout(2000); 
                 }
-
+         
 
                 // searching for the bathroom
                 await killModal();
@@ -600,13 +598,18 @@ function findVenueMapping(venue) {
                 }
 
                 // 🎯 Step 2: Extract the row-index cleanly using browser-side DOM traversal
-                const rowIndex = await nameCell.evaluate(el => {
-	                return row ? row.getAttribute('row-index') : null;                                                          
-	            });                                                                   
+                // read the row-index from the cell's parent .ag-row using a Playwright locator
+                // (no custom JS runs in Netgear's page, so their scripts can't interfere)
+                const rowIndex = await nameCell
+                    .locator('xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " ag-row ")][1]')
+                    .getAttribute('row-index', { timeout: 5000 })
+                    .catch(() => null);
+	                                                                                                                            
 	            if (rowIndex === null) {                                                                                        
 	                console.log(`⚠ Warning: Could not resolve AG-Grid row element context for ${targetGroup}. Defaulting loop...`);
 	                continue; // Safely moves to the next switch in the Node.js loop context
-	            }                                                                                         
+	            }                                                                                                               
+	                                                                                                                            
 	            console.log(`🎯 Identified AG-Grid Row Index: ${rowIndex}`);                                                   
 	                                                                                                                            
 	            // Step 3: Match that exact row-index inside the main body pane to check the side-by-side status tag          
@@ -617,17 +620,18 @@ function findVenueMapping(venue) {
 	                const statusText = await statusCell.innerText();                                                            
 	                if (statusText.includes('Device is disconnected') || await statusCell.locator('p.deviceStatus.colorRed').count() > 0) {
 	                    isDisconnected = true;                                                                                  
-	                }                                                                          a                                 
+	                }
 	            }                                                                                                               
 	                                                                                                                            
 	            // 🛑 DISCONNECTED STATUS ESCALATION LOOP                                                                       
 	            if (isDisconnected) {                                                                                           
 	                console.log(`❌ SKIPPING: Switch "${targetGroup}" is [OFFLINE / DISCONNECTED] at ${venueData.venue}. Escalating to dead queue.`);
-
+	                                                                                                                            
+	                                
 	                for (let forceCount = 0; forceCount < 7; forceCount++) {                                                    
 	                    updateHistory(venueData.venue, sw.location, sw.port, "Switch Disconnected");                            
-	                }
-	                continue;
+	                }                                                                                                           
+	                continue;                               
 	            }
 	            console.log(`🟢 Switch "${targetGroup}" is Connected. Proceeding...`);
 
@@ -635,7 +639,7 @@ function findVenueMapping(venue) {
 
                 // Double click the pinned cell to safely step inside the switch view
                 await nameCell.dblclick({ timeout: 10000 });
-
+                
                 // check session and slow page guard
                 console.log("⏱️ Waiting for switch summary view to load safely...");
                 let viewState = "UNKNOWN";

@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require("fs");
 const path = require("path");
 const axios = require('axios');
@@ -293,7 +293,10 @@ function runScript(scriptName, args = "") {
     return new Promise((resolve) => {
         isSubprocessRunning = true;
         console.log(`🚀 Running: node ${scriptName} ${args}`);
-        const child = exec(`node ${scriptName} ${args}`);
+        // spawn (not exec): exec kills the child once output passes 1MB, which long swbot runs can hit
+        const child = spawn(`node ${scriptName} ${args}`, { shell: true });
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
         
         child.stdout.on('data', (data) => console.log(data));
         child.stderr.on('data', (data) => console.error(data));
@@ -492,10 +495,16 @@ async function startResetting() {
 const schedule = require('node-schedule');
 
 function setupScheduler() {
-    const scheduledTimes = ['10 9 * * *', '0 14 * * *', '0 19 * * *'];
+    const scheduledTimes = ['0 7 * * *', '0 14 * * *']; // 7:00 AM and 2:00 PM (service sets TZ=America/Chicago)
 
     scheduledTimes.forEach(t => {
         schedule.scheduleJob(t, async () => {
+            if (isSubprocessRunning) {
+                console.log(`⏭️ Scheduled run (${t}) skipped: another job is still running.`);
+                await sendTelegram("⏭️ Scheduled run skipped: a scan/reset is already in progress.");
+                return;
+            }
+            purgeOldLogs(); // service runs for weeks, so clean up on every shift, not just at startup
             console.log(`🕒 Scheduled Shift Triggered (${t}): Sending Bot...`);
             await sendTelegram("🤖 **Scheduled Shift Started.** Running full audit and reset cycle...");
 
@@ -519,7 +528,7 @@ function setupScheduler() {
             }
         });
     });
-    console.log("📅 Scheduler active: 9:10 AM, 2:00 PM, 7:00 PM.");
+    console.log("📅 Scheduler active: 7:00 AM, 2:00 PM.");
 }
 
 
