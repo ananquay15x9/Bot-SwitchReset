@@ -10,3 +10,7 @@ testMaster.js
 testBot.js
 history-log.json
 history-log-*.json
+
+/logs
+/netgear_session
+*.sd-backup-*
