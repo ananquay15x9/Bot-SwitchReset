@@ -64,7 +64,7 @@ const getMFACode = async (botToken, chatId) => {
     console.log("📡 Remote MFA Mode: Please send a 6-digit code in Telegram or Terminal:");
     
     // flush the old message and get new one
-    // let the bot login via telegram or terminal, send the code to terminal worked
+    // we can now let the bot login via telegram or terminal, send the code to terminal worked
     let lastUpdateId = process.argv[3] ? parseInt(process.argv[3]) : 0;
 
     try {
@@ -115,6 +115,22 @@ const getMFACode = async (botToken, chatId) => {
 };
 
 
+// Saves a screenshot of whatever Netgear is showing and sends it to Telegram
+async function reportLoginScreen(page, label) {
+    try {
+        const shot = path.join(LOGS_DIR, `login-fail-${Date.now()}.png`);
+        const buf = await page.screenshot({ path: shot, fullPage: true });
+        console.log(`📸 [${label}] Stuck on: ${page.url()}  (screenshot: ${shot})`);
+        const fd = new FormData();
+        fd.append('chat_id', process.env.TELEGRAM_CHAT_ID);
+        fd.append('caption', `⚠️ Login stuck here:\n${page.url()}`);
+        fd.append('photo', new Blob([buf], { type: 'image/png' }), 'login.png');
+        await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+    } catch (err) {
+        console.log(`⚠️ Could not capture login screen: ${err.message}`);
+    }
+}
+
 async function reAuthenticate(page, label = "") {
     console.log(`🔐 [${label}] Starting re-auth sequence...`);
 
@@ -122,7 +138,19 @@ async function reAuthenticate(page, label = "") {
     await page.waitForTimeout(3000);
 
     // Step 1: Credentials (if login screen appeared)
-    if (await page.locator('#email').isVisible({ timeout: 5000 }).catch(() => false)) {
+    // isVisible() never waits, so on a slow Pi the redirect to the login page wasn't finished yet.
+    // Wait up to 30s for EITHER the login box or a page that's already logged in.
+    const loginBox = page.locator('#email');
+    const anyFirstScreen = loginBox
+        .or(page.locator('#headerLocName'))
+        .or(page.locator('#profile-section-avatar-image'));
+    let firstScreen = 'UNKNOWN';
+    if (await anyFirstScreen.first().waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false)) {
+        firstScreen = (await loginBox.isVisible().catch(() => false)) ? 'LOGIN' : 'IN';
+    }
+    console.log(`🔎 [${label}] First screen: ${firstScreen} (${page.url()})`);
+
+    if (firstScreen === 'LOGIN') {
         console.log(`👤 [${label}] Entering credentials...`);
         await page.locator('#email').fill(process.env.NETGEAR_EMAIL);
         await page.locator('#password').fill(process.env.NETGEAR_PWD);
@@ -160,6 +188,7 @@ async function reAuthenticate(page, label = "") {
             page.waitForSelector('#headerLocName',   { timeout: 25000 }).then(() => 'DASHBOARD'),
         ]);
     } catch (e) {
+        await reportLoginScreen(page, label);
         throw new Error(`[${label}] Neither OTP screen nor dashboard appeared after 25s. Netgear may be showing an unexpected page.`);
     }
 
@@ -171,13 +200,13 @@ async function reAuthenticate(page, label = "") {
     console.log(`🔢 [${label}] OTP screen detected.`);
 
     // Step 5: Notify Telegram and get code
-    await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TEST_TOKEN}/sendMessage`, {
-        chat_id: process.env.TELEGRAM_TEST_ID,
+    await axios.post(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
+        chat_id: process.env.TELEGRAM_CHAT_ID,
         text: `🚨 *Netgear MFA Required* [${label}]\n\nPlease reply with the 6-digit email code:`,
         parse_mode: 'Markdown'
     });
 
-    const mfaCode = await getMFACode(process.env.TELEGRAM_TEST_TOKEN, process.env.TELEGRAM_TEST_ID);
+    const mfaCode = await getMFACode(process.env.TELEGRAM_TOKEN, process.env.TELEGRAM_CHAT_ID);
     const digitInputs = page.locator('.otp-digit-input');
     console.log(`🔐 [${label}] Injecting MFA code: ${mfaCode}`);
 
@@ -217,9 +246,19 @@ async function reAuthenticate(page, label = "") {
     await page.click('button:has-text("Trust")', { timeout: 5000 }).catch(() => {});
     await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 }).catch(() => {});
 
-    await page.goto('https://insight.netgear.com/#/devices/dash', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#headerLocName', { timeout: 20000 });
-    console.log(`✅ [${label}] Re-auth successful.`);
+    const loggedIn = page.locator('#headerLocName').or(page.locator('#profile-section-avatar-image'));
+    let ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).them(() => true, () => false);
+    if (!ok) {
+    	console.log(`[${label}] Not on a dashboard yet (${page.url()}), opening Insight home...`);
+    	await page.goto('https://insight.netgear.com/', { waitUntil: 'domcontentloaded' });
+    	ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).them(() => true, () => false);
+    }
+    if (!ok) {
+    	await reportLoginScreen(page, label);
+    	throw new Error(`[${label}] MFA was entered but no dashboard appeared.`);
+    }
+
+    console.log(`✅ [${label}] Re-auth successful (${page.url()}).`);
 }
 
 function normalizeGroupName(name) {
@@ -348,11 +387,30 @@ function findVenueMapping(venue) {
     	fs.unlinkSync(lockFile);
     	console.log('Cleared Chromium SingletonLock');
     }
+    // Netgear's login firewall (CloudFront) returns 403 to automated-looking browsers
+    // (headless mode says "HeadlessChrome" in its identity). Present a normal desktop Chrome instead.
+    // Override with NETGEAR_UA in .env if ever needed.
+    const USER_AGENT = process.env.NETGEAR_UA ||
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+    // Headless picks itself: visible window on Windows/Mac (for watching it work),
+    // headless on a Pi over SSH (no screen), visible under the service (xvfb provides a screen).
+    // Force it either way with HEADLESS=true / HEADLESS=false in .env.
+    const HEADLESS = process.env.HEADLESS
+        ? process.env.HEADLESS.toLowerCase() === 'true'
+        : (process.platform === 'linux' && !process.env.DISPLAY);
+    console.log(`🖥️ Browser mode: ${HEADLESS ? 'headless' : 'visible'}`);
+
     const context = await chromium.launchPersistentContext(SESSION_DIR, {
-        headless: false,
+        headless: HEADLESS,
+        userAgent: USER_AGENT,
+        viewport: { width: 1366, height: 768 },
+        locale: 'en-US',
+        timezoneId: 'America/Chicago',
         args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled', // don't announce "controlled by automation"
         ]
     });
 
@@ -513,6 +571,8 @@ function findVenueMapping(venue) {
 
         try {	
             await killModal();
+            
+            // 1. Make sure we're on the Org_support organization page 
             const ORG_URL = 'https://insight.netgear.com/classic/#/organization/details/Org_support';
             if (!page.url().includes('/organization/details/Org_support')) {
                 console.log("↩️ Returning to Org_support venue list...");

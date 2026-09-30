@@ -21,8 +21,8 @@ function purgeOldLogs() {
 }
 purgeOldLogs();
 
-const TG_TOKEN = process.env.TELEGRAM_TEST_TOKEN;
-const TG_CHAT_ID = process.env.TELEGRAM_TEST_ID;
+const TG_TOKEN = process.env.TELEGRAM_TOKEN;
+const TG_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 // GUARDTEST
 const LOCK_FILE = path.join(__dirname, '../.bot.lock');
 if (fs.existsSync(LOCK_FILE)) {
@@ -411,8 +411,9 @@ async function startResetting() {
             const botPath = fs.existsSync(path.join(__dirname, 'bots/swbot.js'))
                 ? path.join(__dirname, 'bots/swbot.js')
                 : path.join(__dirname, 'src/bots/swbot.js');
-            await runScript(botPath, `"" ${lastUpdateId}`);
-            await sendTelegram("✨ All down devices have been processed through the reset loop.");
+            const code = await runScript(botPath, `"" ${lastUpdateId}`);
+            if (code === 0) await sendTelegram("✨ All down devices have been processed through the reset loop.");
+            else await sendTelegram(`❌ swbot.js crashed (exit code ${code}). Check: tail -n 100 /mnt/usb/swbot/service.log`);
         }
         
         // option 4: targeted reset
@@ -444,8 +445,9 @@ async function startResetting() {
                 } else {
                     const target = matches[0].venue;
                     await sendTelegram(`🎯 Target Acquired: **${target}**.\nSending Bot to Netgear to reset specific switch layout.`);
-                    await runScript(botPath, `"${target}" ${lastUpdateId}`);
-                    await sendTelegram(`✅ Reset cycle for ${target} complete.`);
+                    const code = await runScript(botPath, `"${target}" ${lastUpdateId}`);
+                    if (code === 0) await sendTelegram(`✅ Reset cycle for ${target} complete.`);
+                    else await sendTelegram(`❌ swbot.js crashed (exit code ${code}). Check: tail -n 100 /mnt/usb/swbot/service.log`);
                 }
             }
             await sendTelegram("🏁 **All queued targeted resets are finished.**");
@@ -516,8 +518,10 @@ function setupScheduler() {
                 ? path.join(__dirname, 'bots/swbot.js')
                 : path.join(__dirname, 'src/bots/swbot.js');
 
-            await runScript(scannerPath);
-            await runScript(botPath);
+            const scanCode = await runScript(scannerPath);
+            if (scanCode !== 0) await sendTelegram(`❌ Scheduled scan crashed (exit code ${scanCode}). Using the last saved device list.`);
+            const code = await runScript(botPath);
+            if (code !== 0) await sendTelegram(`❌ swbot.js crashed (exit code ${code}). Check: tail -n 100 /mnt/usb/swbot/service.log`);
 
             await sendTelegram("✨ **Auto-Run Complete.** Here is the final status:");
             
