@@ -247,11 +247,11 @@ async function reAuthenticate(page, label = "") {
     await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 }).catch(() => {});
 
     const loggedIn = page.locator('#headerLocName').or(page.locator('#profile-section-avatar-image'));
-    let ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).them(() => true, () => false);
+    let ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false);
     if (!ok) {
     	console.log(`[${label}] Not on a dashboard yet (${page.url()}), opening Insight home...`);
     	await page.goto('https://insight.netgear.com/', { waitUntil: 'domcontentloaded' });
-    	ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).them(() => true, () => false);
+    	ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false);
     }
     if (!ok) {
     	await reportLoginScreen(page, label);
@@ -574,30 +574,48 @@ function findVenueMapping(venue) {
             
             // 1. Make sure we're on the Org_support organization page 
             const ORG_URL = 'https://insight.netgear.com/classic/#/organization/details/Org_support';
+            const ORG_DASH_URL = 'https://insight.netgear.com/classic/#/organization/dashboard';
+            const venueRows = page.locator('p.no-margin.breakWord');
+            const rowsShown = (ms) => venueRows.first().waitFor({ state: 'visible', timeout: ms }).then(() => true, () => false);
+            const loaderGone = () => page.locator('.loaderTextContainer').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
+            
             if (!page.url().includes('/organization/details/Org_support')) {
                 console.log("↩️ Returning to Org_support venue list...");
                 await page.goto(ORG_URL, { waitUntil: 'domcontentloaded' });
             }
-            await page.locator('.loaderTextContainer').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
+            await loaderGone();
             await killModal();
 
-            // 2. Type the venue name into the search bar
-            const venueSearch = page.locator('input.agGridSearch').first();
+            if (!(await rowsShown(20000))) {
+            	// the direct URL sometimes opens an empty list; re-enter the way that works for the first venue
+            	console.log("Venue list empty, re-entering via organization dashboard...");
+            	await page.goto(ORG_DASH_URL, { waitUntil: 'domcontentloaded' });
+            	await loaderGone();
+            	const orgTile = page.locator('span.scanQRCodeDrop', { hasText: 'Org_support' }).first();
+            	await orgTile.waitFor({ state: 'visible', timeout: 20000 });
+            	                await orgTile.dblclick();
+            	                await page.waitForURL(url => url.href.includes('/organization/details/Org_support'), { timeout: 20000 }).catch(() => {});
+            	                await loaderGone();
+            	                await killModal();
+            	                if (!(await rowsShown(20000))) throw new Error(`Org_support venue list never loaded (no venue rows) at ${page.url()}`);
+            }
+            const venueSearch = page.locator('input.agGridSearch:visible').first();
             await venueSearch.waitFor({ state: 'visible', timeout: 15000 });
             await venueSearch.fill('');
             await venueSearch.fill(netgearVenueName);
-            await page.waitForTimeout(2000);
+            
+         
 
             // 3. DOUBLE-click the matching venue row (exact name first, then contains)
             const escaped = netgearVenueName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            let venueCell = page.locator('p.no-margin.breakWord').filter({ hasText: new RegExp(`^\\s*${escaped}\\s*$`, 'i') }).first();
-            if (!(await venueCell.isVisible().catch(() => false))) {
-                venueCell = page.locator('p.no-margin.breakWord', { hasText: netgearVenueName }).first();
-            }
-            if (!(await venueCell.isVisible().catch(() => false))) {
-                const seen = await page.locator('p.no-margin.breakWord').allInnerTexts().catch(() => []);
-                throw new Error(`Could not find Netgear location matching "${netgearVenueName}". Visible: ${seen.map(t => t.trim()).join(' | ')}`);
-            }
+            let venueCell = venueRows.filter({ hasText: new RegExp(`^\\s*${escaped}\\s*$`, 'i') }).first();
+            if (!(await venueCell.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false))) {
+	            venueCell = venueRows.filter({ hasText: netgearVenueName }).first();
+	            if (!(await venueCell.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false))) {
+	                const seen = await venueRows.allInnerTexts().catch(() => []);
+	                throw new Error(`Could not find Netgear location matching "${netgearVenueName}". Visible: ${seen.map(t => t.trim()).join(' | ') || '(no rows)'}`);
+	            }
+	        }
             await killModal();
             await venueCell.dblclick();
             console.log(`🏟️ Opened venue: ${netgearVenueName}`);
