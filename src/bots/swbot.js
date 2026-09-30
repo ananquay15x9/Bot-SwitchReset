@@ -64,7 +64,7 @@ const getMFACode = async (botToken, chatId) => {
     console.log("📡 Remote MFA Mode: Please send a 6-digit code in Telegram or Terminal:");
     
     // flush the old message and get new one
-    // we can now let the bot login via telegram or terminal, send the code to terminal worked
+    // wait for the bot to login via telegram or terminal, send the code to terminal worked
     let lastUpdateId = process.argv[3] ? parseInt(process.argv[3]) : 0;
 
     try {
@@ -116,14 +116,14 @@ const getMFACode = async (botToken, chatId) => {
 
 
 // Saves a screenshot of whatever Netgear is showing and sends it to Telegram
-async function reportLoginScreen(page, label) {
+async function reportLoginScreen(page, label, caption = '⚠️ Login stuck here') {
     try {
         const shot = path.join(LOGS_DIR, `login-fail-${Date.now()}.png`);
         const buf = await page.screenshot({ path: shot, fullPage: true });
         console.log(`📸 [${label}] Stuck on: ${page.url()}  (screenshot: ${shot})`);
         const fd = new FormData();
         fd.append('chat_id', process.env.TELEGRAM_CHAT_ID);
-        fd.append('caption', `⚠️ Login stuck here:\n${page.url()}`);
+        fd.append('caption', `⚠️ ${caption}:\n${page.url()}`);
         fd.append('photo', new Blob([buf], { type: 'image/png' }), 'login.png');
         await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
     } catch (err) {
@@ -131,10 +131,32 @@ async function reportLoginScreen(page, label) {
     }
 }
 
+// Netgear sometimes shows a blank white page on the first load
+// A Ctrl + R fixes it
+async function openInsightHome(page) {
+    await page.goto('https://insight.netgear.com/', { waitUntil: 'domcontentloaded' });
+    const anyKnownScreen = page.locator('#email')                       // login page
+        .or(page.locator('.otp-digit-input'))                         // MFA page
+        .or(page.locator('#profile-section-avatar-image'))            // new UI
+        .or(page.locator('#headerLocName'))                           // classic UI
+        .or(page.locator('button:has-text("Try Another Verification Method")'));
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        if (await anyKnownScreen.first().waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false)) {
+            return;
+        }
+        if (attempt < 3) {
+            console.log(`⬜ Blank page at ${page.url()}, refreshing (${attempt}/2)...`);
+            await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+        }
+    }
+    console.log(`⚠️ Insight still blank after 2 refreshes (${page.url()}). Continuing anyway.`);
+}
+
 async function reAuthenticate(page, label = "") {
     console.log(`🔐 [${label}] Starting re-auth sequence...`);
 
-    await page.goto('https://insight.netgear.com/#/landingPage');
+    await openInsightHome(page);
     await page.waitForTimeout(3000);
 
     // Step 1: Credentials (if login screen appeared)
@@ -246,18 +268,19 @@ async function reAuthenticate(page, label = "") {
     await page.click('button:has-text("Trust")', { timeout: 5000 }).catch(() => {});
     await page.click('button.btn-primary:has-text("Continue")', { timeout: 5000 }).catch(() => {});
 
+    // After MFA Netgear may land on the NEW UI, which has no #headerLocName.
+    // Accept either UI as "logged in"; the classic-switch step after this handles the rest.
     const loggedIn = page.locator('#headerLocName').or(page.locator('#profile-section-avatar-image'));
     let ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false);
     if (!ok) {
-    	console.log(`[${label}] Not on a dashboard yet (${page.url()}), opening Insight home...`);
-    	await page.goto('https://insight.netgear.com/', { waitUntil: 'domcontentloaded' });
-    	ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false);
+        console.log(`↪️ [${label}] Not on a dashboard yet (${page.url()}), opening Insight home...`);
+        await page.goto('https://insight.netgear.com/', { waitUntil: 'domcontentloaded' });
+        ok = await loggedIn.first().waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false);
     }
     if (!ok) {
-    	await reportLoginScreen(page, label);
-    	throw new Error(`[${label}] MFA was entered but no dashboard appeared.`);
+        await reportLoginScreen(page, label);
+        throw new Error(`[${label}] MFA was entered but no dashboard appeared.`);
     }
-
     console.log(`✅ [${label}] Re-auth successful (${page.url()}).`);
 }
 
@@ -417,7 +440,8 @@ function findVenueMapping(venue) {
     let page = await context.newPage();
     const swList = JSON.parse(fs.readFileSync(SCAN_FILE, 'utf8'));
 
-    await page.goto('https://insight.netgear.com/#/landingPage');
+    await openInsightHome(page);
+
     
     //allow script to handle landing page redirection
     await page.waitForTimeout(3000);
@@ -426,7 +450,7 @@ function findVenueMapping(venue) {
     let alreadyLoggedIn = false;
     try {
         alreadyLoggedIn = await Promise.race([
-            page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('account'), { timeout: 12000 }).then(() => true),
+            page.waitForFunction(() => window.location.href.includes('dashboard') || window.location.href.includes('account'), null, { timeout: 12000 }).then(() => true),
             page.waitForSelector('#email', { timeout: 12000 }).then(() => false),
             page.waitForSelector('.otp-digit-input', { timeout: 12000 }).then(() => false),
             page.waitForSelector('button:has-text("Try Another Verification Method")', { timeout: 12000 }).then(() => false)
@@ -442,7 +466,7 @@ function findVenueMapping(venue) {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
-    // Check if in the new UI (/organization/...)
+    // Check if  in the new UI (/organization/...)
     if (!page.url().includes('/classic/')) {
         console.log("🆕 New UI active. Executing recorded profile switch...");
 
@@ -572,13 +596,13 @@ function findVenueMapping(venue) {
         try {	
             await killModal();
             
-            // 1. Make sure we're on the Org_support organization page 
+            // 1. Get to the Org_support venue list and WAIT until venue rows are actually rendered
             const ORG_URL = 'https://insight.netgear.com/classic/#/organization/details/Org_support';
             const ORG_DASH_URL = 'https://insight.netgear.com/classic/#/organization/dashboard';
             const venueRows = page.locator('p.no-margin.breakWord');
             const rowsShown = (ms) => venueRows.first().waitFor({ state: 'visible', timeout: ms }).then(() => true, () => false);
             const loaderGone = () => page.locator('.loaderTextContainer').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
-            
+
             if (!page.url().includes('/organization/details/Org_support')) {
                 console.log("↩️ Returning to Org_support venue list...");
                 await page.goto(ORG_URL, { waitUntil: 'domcontentloaded' });
@@ -587,35 +611,40 @@ function findVenueMapping(venue) {
             await killModal();
 
             if (!(await rowsShown(20000))) {
-            	// the direct URL sometimes opens an empty list; re-enter the way that works for the first venue
-            	console.log("Venue list empty, re-entering via organization dashboard...");
-            	await page.goto(ORG_DASH_URL, { waitUntil: 'domcontentloaded' });
-            	await loaderGone();
-            	const orgTile = page.locator('span.scanQRCodeDrop', { hasText: 'Org_support' }).first();
-            	await orgTile.waitFor({ state: 'visible', timeout: 20000 });
-            	                await orgTile.dblclick();
-            	                await page.waitForURL(url => url.href.includes('/organization/details/Org_support'), { timeout: 20000 }).catch(() => {});
-            	                await loaderGone();
-            	                await killModal();
-            	                if (!(await rowsShown(20000))) throw new Error(`Org_support venue list never loaded (no venue rows) at ${page.url()}`);
+                // the direct URL sometimes opens an empty list; re-enter the way that works for the first venue
+                console.log("↪️ Venue list empty, reloading the organization dashboard (double-click Org_support)...");
+                await page.goto(ORG_DASH_URL, { waitUntil: 'domcontentloaded' });
+                await page.reload({ waitUntil: 'domcontentloaded' });
+                await loaderGone();
+                await killModal();
+                const orgTile = page.locator('span.scanQRCodeDrop', { hasText: 'Org_support' }).first();
+                if (!(await orgTile.waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false))) {
+                    await reportLoginScreen(page, netgearVenueName, 'Org_support tile missing');
+                    throw new Error(`Org_support tile not found on dashboard at ${page.url()}`);
+                }
+                await orgTile.dblclick();
+                await page.waitForURL(url => url.href.includes('/organization/details/Org_support'), { timeout: 20000 }).catch(() => {});
+                await loaderGone();
+                await killModal();
+                if (!(await rowsShown(20000))) throw new Error(`Org_support venue list never loaded (no venue rows) at ${page.url()}`);
             }
+
+            // 2. Type the venue name into the (visible) search bar
             const venueSearch = page.locator('input.agGridSearch:visible').first();
             await venueSearch.waitFor({ state: 'visible', timeout: 15000 });
             await venueSearch.fill('');
             await venueSearch.fill(netgearVenueName);
-            
-         
 
-            // 3. DOUBLE-click the matching venue row (exact name first, then contains)
+            // 3. Wait for the matching venue row (exact name first, then contains)
             const escaped = netgearVenueName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             let venueCell = venueRows.filter({ hasText: new RegExp(`^\\s*${escaped}\\s*$`, 'i') }).first();
             if (!(await venueCell.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false))) {
-	            venueCell = venueRows.filter({ hasText: netgearVenueName }).first();
-	            if (!(await venueCell.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false))) {
-	                const seen = await venueRows.allInnerTexts().catch(() => []);
-	                throw new Error(`Could not find Netgear location matching "${netgearVenueName}". Visible: ${seen.map(t => t.trim()).join(' | ') || '(no rows)'}`);
-	            }
-	        }
+                venueCell = venueRows.filter({ hasText: netgearVenueName }).first();
+                if (!(await venueCell.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false))) {
+                    const seen = await venueRows.allInnerTexts().catch(() => []);
+                    throw new Error(`Could not find Netgear location matching "${netgearVenueName}". Visible: ${seen.map(t => t.trim()).join(' | ') || '(no rows)'}`);
+                }
+            }
             await killModal();
             await venueCell.dblclick();
             console.log(`🏟️ Opened venue: ${netgearVenueName}`);
@@ -690,17 +719,26 @@ function findVenueMapping(venue) {
 	                                                                                                                            
 	            console.log(`🎯 Identified AG-Grid Row Index: ${rowIndex}`);                                                   
 	                                                                                                                            
-	            // Step 3: Match that exact row-index inside the main body pane to check the side-by-side status tag          
-	            const statusCell = page.locator(`.ag-center-cols-container .ag-row[row-index="${rowIndex}"] .ag-cell[col-id="status"]`);
-	            let isDisconnected = false;                                                                                     
-	                                                                                                                            
-	            if (await statusCell.isVisible()) {                                                                             
-	                const statusText = await statusCell.innerText();                                                            
-	                if (statusText.includes('Device is disconnected') || await statusCell.locator('p.deviceStatus.colorRed').count() > 0) {
-	                    isDisconnected = true;                                                                                  
-	                }
-	            }                                                                                                               
-	                                                                                                                            
+                // Step 3: read the status tag from ANY part of this row (column id / position may change),
+                // and WAIT for it, since the grid draws columns a moment after filtering.
+                const rowCells = page.locator(`.ag-center-cols-container .ag-row[row-index="${rowIndex}"] .ag-cell`);
+                await rowCells.first().waitFor({ state: 'attached', timeout: 10000 }).catch(() => {});
+                await page.waitForTimeout(500); // let the row finish drawing its cells
+                const statusTag = page.locator(`.ag-row[row-index="${rowIndex}"] p.deviceStatus`).first();
+                let isDisconnected = false;
+                const statusFound = (await statusTag.count().catch(() => 0)) > 0;
+
+                if (statusFound) {
+                    const statusText = ((await statusTag.textContent().catch(() => '')) || '').trim();
+                    const statusClass = (await statusTag.getAttribute('class').catch(() => '')) || '';
+                    console.log(`📶 Status of "${targetGroup}": ${statusText || '(no text)'}`);
+                    if (/disconnected/i.test(statusText) || /\bcolorRed\b/.test(statusClass)) {
+                        isDisconnected = true;
+                    }
+                } else {
+                    console.log(`📶 Status of "${targetGroup}": no disconnected tag (treated as connected)`);
+                }
+
 	            // 🛑 DISCONNECTED STATUS ESCALATION LOOP                                                                       
 	            if (isDisconnected) {                                                                                           
 	                console.log(`❌ SKIPPING: Switch "${targetGroup}" is [OFFLINE / DISCONNECTED] at ${venueData.venue}. Escalating to dead queue.`);
@@ -1008,15 +1046,19 @@ function findVenueMapping(venue) {
 
             	await killModal();
 
-            	await page.goto('https://insight.netgear.com/classic/#/devices/dash', { 
-                    waitUntil: 'domcontentloaded', 
-                    timeout: 20000 
+                await page.goto('https://insight.netgear.com/classic/#/organization/details/Org_support', {
+                    waitUntil: 'domcontentloaded',
+                    timeout: 20000
                 });
+                await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+                await page.locator('.loaderTextContainer').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
 
-                //rebuild the layout
-                await page.waitForSelector('div.m-b-10 input.agGridSearch', { timeout: 15000 }).catch(() => {});
-                await page.waitForTimeout(3000);
-                console.log("Reset successfully.");
+
+                const listBack = await page.locator('p.no-margin.breakWord').first()
+                    .waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false);
+                console.log(listBack
+                    ? "✅ Recovered: venue list is back."
+                    : `⚠️ Recovery incomplete (venue list not visible at ${page.url()}). Next venue will retry.`);
             } catch (recoveryErr) {
             	console.log(`⚠️ Canvas scrub failed: ${recoveryErr.message}. Forcing raw dashboard refresh fallback...`);
                 await page.goto('https://insight.netgear.com/classic/#/devices/dash', { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
