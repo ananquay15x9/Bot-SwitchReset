@@ -486,14 +486,42 @@ function findVenueMapping(venue) {
             switchToClassicBtn.click()
         ]);
 
-        // Close the old dashboard tab
-        await page.close().catch(() => {});
+        // keep the new UI tab open until classic is up
+        const newUiPage = page;
         page = classicPage;
 
         console.log("⏳ Waiting for classic dashboard tab to load...");
-        await page.waitForURL(url => url.href.includes('/classic/'), { timeout: 25000 });
+        let onClassic = await page.waitForURL(url => url.href.includes('/classic'), { timeout: 25000 }).then(() => true, () => false);
+        console.log(`📍 Classic tab URL: ${page.url()}`);
+
+        if (!onClassic) {
+            const other = context.pages().find(p => p.url().includes('/classic'));
+            if (other) {
+                page = other;
+                onClassic = true;
+            } else {
+                console.log("↪️ Classic tab didn't load, opening classic dashboard directly...");
+                await page.goto('https://insight.netgear.com/classic/#/organization/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
+            }
+        }
+
         await page.bringToFront();
-        await page.waitForLoadState('domcontentloaded');
+        
+                // Classic can also come up blank on first load (same as the home page): refresh if nothing shows
+                const classicReady = page.locator('span.scanQRCodeDrop').or(page.locator('#headerLocName'));
+                let ready = false;
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    if (await classicReady.first().waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false)) { ready = true; break; }
+                    if (attempt < 3) {
+                        console.log(`⬜ Classic page blank at ${page.url()}, refreshing (${attempt}/2)...`);
+                        await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+                    }
+                }
+                if (!ready) await reportLoginScreen(page, 'Classic switch', 'Classic UI did not load');
+        
+                // now it's safe to close the new-UI tab
+                if (newUiPage !== page) await newUiPage.close().catch(() => {});
+        
         await page.waitForTimeout(2000);
     }
 
