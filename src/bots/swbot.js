@@ -119,7 +119,7 @@ const getMFACode = async (botToken, chatId) => {
 async function reportLoginScreen(page, label, caption = '⚠️ Login stuck here') {
     try {
         const shot = path.join(LOGS_DIR, `login-fail-${Date.now()}.png`);
-        const buf = await page.screenshot({ path: shot, fullPage: true });
+        const buf = await page.screenshot({ path: shot, fullPage: true, timeout: 10000 });
         console.log(`📸 [${label}] Stuck on: ${page.url()}  (screenshot: ${shot})`);
         const fd = new FormData();
         fd.append('chat_id', process.env.TELEGRAM_CHAT_ID);
@@ -506,21 +506,30 @@ function findVenueMapping(venue) {
         }
 
         await page.bringToFront();
+
+        if (onClassic & !page.url().includes('/organization/')) {
+        	console.log(`Classic opened on ${page.url()}, going to the organization dashboard...`);
+        	await page.goto('https://insight.netgear.com/classic/#/organization/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
+        	await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+
+        	
+        	
+        }
         
-                // Classic can also come up blank on first load (same as the home page): refresh if nothing shows
-                const classicReady = page.locator('span.scanQRCodeDrop').or(page.locator('#headerLocName'));
-                let ready = false;
-                for (let attempt = 1; attempt <= 3; attempt++) {
-                    if (await classicReady.first().waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false)) { ready = true; break; }
-                    if (attempt < 3) {
-                        console.log(`⬜ Classic page blank at ${page.url()}, refreshing (${attempt}/2)...`);
-                        await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-                    }
-                }
-                if (!ready) await reportLoginScreen(page, 'Classic switch', 'Classic UI did not load');
-        
-                // now it's safe to close the new-UI tab
-                if (newUiPage !== page) await newUiPage.close().catch(() => {});
+        // Classic can also come up blank on first load (same as the home page): refresh if nothing shows
+        const classicReady = page.locator('span.scanQRCodeDrop').or(page.locator('#headerLocName'));
+        let ready = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            if (await classicReady.first().waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false)) { ready = true; break; }
+            if (attempt < 3) {
+                console.log(`⬜ Classic page blank at ${page.url()}, refreshing (${attempt}/2)...`);
+                await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+            }
+        }
+        if (!ready) await reportLoginScreen(page, 'Classic switch', 'Classic UI did not load');
+
+        // now it's safe to close the new-UI tab
+        if (newUiPage !== page) await newUiPage.close().catch(() => {});
         
         await page.waitForTimeout(2000);
     }
@@ -680,12 +689,11 @@ function findVenueMapping(venue) {
             await page.waitForTimeout(2000);
 
             // 4. Click the "Devices" tab to see all switches
-            const devicesTab = page.locator('a[href*="/devices/dash"]').first();
-            if (await devicesTab.isVisible({ timeout: 10000 }).catch(() => false)) {
-                await devicesTab.click();
-            } else {
-                await page.getByText('Devices', { exact: true }).first().click({ timeout: 10000 });
-            }
+            const devicesTab = page.locator('a[href*="/devices/dash"]:visible')
+                .or(page.locator(':is(a, li, p, span, button):text-is("Devices"):visible'));
+            await devicesTab.first().waitFor({ state: 'visible', timeout: 20000 });
+            await devicesTab.first().click();
+
             await page.waitForURL(url => url.href.includes('/devices/dash'), { timeout: 20000 });
             await page.waitForSelector('div.m-b-10 input.agGridSearch', { timeout: 15000 });
             console.log("📋 Devices tab loaded.");
