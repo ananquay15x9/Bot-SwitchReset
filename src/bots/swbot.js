@@ -64,7 +64,7 @@ const getMFACode = async (botToken, chatId) => {
     console.log("📡 Remote MFA Mode: Please send a 6-digit code in Telegram or Terminal:");
     
     // flush the old message and get new one
-    // we can now let the bot login via telegram or terminal, send the code to terminal worked
+  
     let lastUpdateId = process.argv[3] ? parseInt(process.argv[3]) : 0;
 
     try {
@@ -441,6 +441,11 @@ function findVenueMapping(venue) {
         '--disable-setuid-sandbox',
         '--disable-blink-features=AutomationControlled', // don't announce "controlled by automation"
         '--disable-gpu', // skip software GPU emulation, which is heavy on a Pi
+        // Keep the browser CACHE in RAM on Linux: writing thousands of small cache files to the
+        // USB stick stalled page loads (high disk wait). Login cookies stay in SESSION_DIR on the USB.
+        ...(process.platform === 'linux'
+            ? ['--disk-cache-dir=/dev/shm/swbot-chromium-cache', '--disk-cache-size=67108864']
+            : []),
         ]
     });
 
@@ -487,7 +492,7 @@ function findVenueMapping(venue) {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
-    // Check if we are in the new UI (/organization/...)
+    // Check if  in the new UI (/organization/...)
     if (!page.url().includes('/classic/')) {
         console.log("🆕 New UI active. Executing recorded profile switch...");
 
