@@ -62,9 +62,7 @@ function updateHistory(venue, device, port, statusReason = "Max Reset Attempts E
 //login remotely
 const getMFACode = async (botToken, chatId) => {
     console.log("📡 Remote MFA Mode: Please send a 6-digit code in Telegram or Terminal:");
-    
-    // flush the old message and get new one
-    // wait for the bot to login via telegram or terminal, send the code to terminal worked
+
     let lastUpdateId = process.argv[3] ? parseInt(process.argv[3]) : 0;
 
     try {
@@ -116,7 +114,7 @@ const getMFACode = async (botToken, chatId) => {
 
 
 // Saves a screenshot of whatever Netgear is showing and sends it to Telegram
-async function reportLoginScreen(page, label, caption = '⚠️ Login stuck here') {
+async function reportLoginScreen(page, label, caption = 'Login stuck here') {
     try {
         const shot = path.join(LOGS_DIR, `login-fail-${Date.now()}.png`);
         const buf = await page.screenshot({ path: shot, fullPage: true, timeout: 10000 });
@@ -131,8 +129,7 @@ async function reportLoginScreen(page, label, caption = '⚠️ Login stuck here
     }
 }
 
-// Netgear sometimes shows a blank white page on the first load
-// A Ctrl + R fixes it
+
 async function openInsightHome(page) {
     await page.goto('https://insight.netgear.com/', { waitUntil: 'domcontentloaded' });
     const anyKnownScreen = page.locator('#email')                       // login page
@@ -142,7 +139,7 @@ async function openInsightHome(page) {
         .or(page.locator('button:has-text("Try Another Verification Method")'));
 
     for (let attempt = 1; attempt <= 3; attempt++) {
-        if (await anyKnownScreen.first().waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false)) {
+        if (await anyKnownScreen.first().waitFor({ state: 'visible', timeout: 25000 }).then(() => true, () => false)) {
             return;
         }
         if (attempt < 3) {
@@ -171,6 +168,11 @@ async function reAuthenticate(page, label = "") {
         firstScreen = (await loginBox.isVisible().catch(() => false)) ? 'LOGIN' : 'IN';
     }
     console.log(`🔎 [${label}] First screen: ${firstScreen} (${page.url()})`);
+
+    if (firstScreen === 'IN') {
+        console.log(`✅ [${label}] Already logged in, no login/MFA needed.`);
+        return;
+    }
 
     if (firstScreen === 'LOGIN') {
         console.log(`👤 [${label}] Entering credentials...`);
@@ -207,7 +209,8 @@ async function reAuthenticate(page, label = "") {
     try {
         outcome = await Promise.race([
             page.waitForSelector('.otp-digit-input', { timeout: 25000 }).then(() => 'OTP'),
-            page.waitForSelector('#headerLocName',   { timeout: 25000 }).then(() => 'DASHBOARD'),
+            page.locator('#headerLocName').or(page.locator('#profile-section-avatar-image')).first()
+                .waitFor({ state: 'visible', timeout: 25000 }).then(() => 'DASHBOARD'),
         ]);
     } catch (e) {
         await reportLoginScreen(page, label);
@@ -441,7 +444,6 @@ function findVenueMapping(venue) {
     const swList = JSON.parse(fs.readFileSync(SCAN_FILE, 'utf8'));
 
     await openInsightHome(page);
-
     
     //allow script to handle landing page redirection
     await page.waitForTimeout(3000);
@@ -466,7 +468,7 @@ function findVenueMapping(venue) {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
-    // Check if  in the new UI (/organization/...)
+    // Check if we are in the new UI (/organization/...)
     if (!page.url().includes('/classic/')) {
         console.log("🆕 New UI active. Executing recorded profile switch...");
 
@@ -486,7 +488,8 @@ function findVenueMapping(venue) {
             switchToClassicBtn.click()
         ]);
 
-        // keep the new UI tab open until classic is up
+        // Keep the new-UI tab OPEN until classic is up: the new tab may get its login hand-off from it,
+        // and closing it right away (fine on a fast PC) leaves the classic tab stuck on the slower Pi.
         const newUiPage = page;
         page = classicPage;
 
@@ -504,18 +507,15 @@ function findVenueMapping(venue) {
                 await page.goto('https://insight.netgear.com/classic/#/organization/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
             }
         }
-
         await page.bringToFront();
 
-        if (onClassic & !page.url().includes('/organization/')) {
-        	console.log(`Classic opened on ${page.url()}, going to the organization dashboard...`);
-        	await page.goto('https://insight.netgear.com/classic/#/organization/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
-        	await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-
-        	
-        	
+        // On the Pi, classic sometimes opens on an unrelated page (e.g. #/CamSdk) that never draws.
+        if (onClassic && !page.url().includes('/organization/')) {
+            console.log(`↪️ Classic opened on ${page.url()}, going to the organization dashboard...`);
+            await page.goto('https://insight.netgear.com/classic/#/organization/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
+            await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {}); // a #-only change doesn't reload a broken page
         }
-        
+
         // Classic can also come up blank on first load (same as the home page): refresh if nothing shows
         const classicReady = page.locator('span.scanQRCodeDrop').or(page.locator('#headerLocName'));
         let ready = false;
@@ -530,7 +530,6 @@ function findVenueMapping(venue) {
 
         // now it's safe to close the new-UI tab
         if (newUiPage !== page) await newUiPage.close().catch(() => {});
-        
         await page.waitForTimeout(2000);
     }
 
@@ -651,13 +650,14 @@ function findVenueMapping(venue) {
                 // the direct URL sometimes opens an empty list; re-enter the way that works for the first venue
                 console.log("↪️ Venue list empty, reloading the organization dashboard (double-click Org_support)...");
                 await page.goto(ORG_DASH_URL, { waitUntil: 'domcontentloaded' });
+                // changing only the #/... part never reloads the page, so a broken page stays broken - force a real reload
                 await page.reload({ waitUntil: 'domcontentloaded' });
                 await loaderGone();
                 await killModal();
                 const orgTile = page.locator('span.scanQRCodeDrop', { hasText: 'Org_support' }).first();
                 if (!(await orgTile.waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false))) {
                     await reportLoginScreen(page, netgearVenueName, 'Org_support tile missing');
-                    throw new Error(`Org_support tile not found on dashboard at ${page.url()}`);
+                    throw new Error(`Org_support tile not found after reload at ${page.url()}`);
                 }
                 await orgTile.dblclick();
                 await page.waitForURL(url => url.href.includes('/organization/details/Org_support'), { timeout: 20000 }).catch(() => {});
@@ -693,7 +693,6 @@ function findVenueMapping(venue) {
                 .or(page.locator(':is(a, li, p, span, button):text-is("Devices"):visible'));
             await devicesTab.first().waitFor({ state: 'visible', timeout: 20000 });
             await devicesTab.first().click();
-
             await page.waitForURL(url => url.href.includes('/devices/dash'), { timeout: 20000 });
             await page.waitForSelector('div.m-b-10 input.agGridSearch', { timeout: 15000 });
             console.log("📋 Devices tab loaded.");
@@ -772,6 +771,7 @@ function findVenueMapping(venue) {
                         isDisconnected = true;
                     }
                 } else {
+                    // connected switches don't carry the red status tag
                     console.log(`📶 Status of "${targetGroup}": no disconnected tag (treated as connected)`);
                 }
 
@@ -1082,13 +1082,13 @@ function findVenueMapping(venue) {
 
             	await killModal();
 
-                await page.goto('https://insight.netgear.com/classic/#/organization/details/Org_support', {
+            	await page.goto('https://insight.netgear.com/classic/#/organization/details/Org_support', {
                     waitUntil: 'domcontentloaded',
                     timeout: 20000
                 });
+                // real reload so the next venue starts from a fresh page, not the broken one
                 await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
                 await page.locator('.loaderTextContainer').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
-
 
                 const listBack = await page.locator('p.no-margin.breakWord').first()
                     .waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false);
