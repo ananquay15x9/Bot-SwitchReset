@@ -62,7 +62,9 @@ function updateHistory(venue, device, port, statusReason = "Max Reset Attempts E
 //login remotely
 const getMFACode = async (botToken, chatId) => {
     console.log("📡 Remote MFA Mode: Please send a 6-digit code in Telegram or Terminal:");
-
+    
+    // flush the old message and get new one
+    // we can now let the bot login via telegram or terminal, send the code to terminal worked
     let lastUpdateId = process.argv[3] ? parseInt(process.argv[3]) : 0;
 
     try {
@@ -129,7 +131,8 @@ async function reportLoginScreen(page, label, caption = 'Login stuck here') {
     }
 }
 
-
+// Opens Insight's home. Netgear sometimes shows a blank white page on the first load
+// (a manual Ctrl+R fixes it), so refresh automatically if nothing recognizable appears.
 async function openInsightHome(page) {
     await page.goto('https://insight.netgear.com/', { waitUntil: 'domcontentloaded' });
     const anyKnownScreen = page.locator('#email')                       // login page
@@ -437,10 +440,26 @@ function findVenueMapping(venue) {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-blink-features=AutomationControlled', // don't announce "controlled by automation"
+        '--disable-gpu', // skip software GPU emulation, which is heavy on a Pi
         ]
     });
 
     let page = await context.newPage();
+
+    // close Chromium's empty start tab - one less tab in memory on the Pi
+    for (const p of context.pages()) {
+        if (p !== page && p.url() === 'about:blank') await p.close().catch(() => {});
+    }
+
+    // DIAGNOSTICS: log Netgear files that fail to download (explains blank pages). Capped per run.
+    let netIssues = 0;
+    const logNet = (msg) => { if (netIssues++ < 40) console.log(msg); };
+    context.on('requestfailed', req => {
+        if (/netgear\.com/.test(req.url())) logNet(`🌐✖ ${req.failure()?.errorText || 'failed'}  ${req.url().slice(0, 160)}`);
+    });
+    context.on('response', res => {
+        if (res.status() >= 400 && /netgear\.com/.test(res.url())) logNet(`🌐 ${res.status()}  ${res.url().slice(0, 160)}`);
+    });
     const swList = JSON.parse(fs.readFileSync(SCAN_FILE, 'utf8'));
 
     await openInsightHome(page);
