@@ -395,7 +395,7 @@ async function startResetting() {
             await sendTelegram("🧹 Wiping saved Netgear session. Next reset will log in fresh and ask for MFA.");
             const result = clearNetgearSession();
             if (result.ok) {
-                await sendTelegram(✅ Session wiped (${result.removed} items).\nThe next \`reset\` will login fresh and ask for an MFA code here.`);
+                await sendTelegram(`✅ Session wiped (${result.removed} items).\nThe next \`reset\` will log in fresh and ask for an MFA code here.`);
             } else {
                 await sendTelegram(`❌ Session wipe failed: ${result.error || 'Unknown error'}. Check logs for details.`);
             }
