@@ -146,14 +146,39 @@ async function sendTelegram(message, retries = 4) {
     }
 }
 
+// wipes saved netgear session (cookies, login state, storage) + RAM chace
+function clearNetgearSession() {
+    const SESSION_DIR = path.join(__dirname, '../netgear_session');
+    const RAM_CACHE = '/dev/shm/swbot-chromium-cache';
+    let removed = 0;
+    try {
+        if (process.platform === 'linux') {
+            require ('child_process').spawnSync('pkill', ['-f', 'netgear_session'], { stdio: 'ignore' });
+        }
+        if (fs.existsSync(SESSION_DIR)) {
+            for (const entry of fs.readdirSync(SESSION_DIR)) {
+                fs.rmSync(path.join(SESSION_DIR, entry), { recursive: true, force: true });
+                removed++;
+            }
+        }
+        if (fs.existsSync(RAM_CACHE)) fs.rmSync(RAM_CACHE, { recursive: true, force: true });
+        console.log(`Netgear session wiped (${removed} items).`);
+        return { ok: true, removed };
+    } catch (e) {
+        console.error("Session wiped failed:", e.message);
+        return { ok: false, removed, error: e.message };
+    }
+}
+
 const COMMAND_MENU = `
 **👇 Available Commands:**
-• \`scan\` - Full network audit
-• \`reset all\` - Reset every down device
+• \`scan\` - Scrape iSite Portal for down devices and generate a report
+• \`reset all\` - Reset all down device
 • \`reset [venue]\` - Reset a specific site (e.g., \`reset mizzou\`)
 • \`status\` - Re-send the latest report
 • \`ping\` - Check if I'm awake
-• \`show dead\` - Show dead devices
+• \`show dead\` - Show dead units
+• \`refresh\` - Wipe the saved Netgear login (next reset logs in fresh + asks for MFA)
 
 _Simply type a command below to begin._`;
 
@@ -357,12 +382,23 @@ async function startResetting() {
     async function handleCommand(text) {
         // 0, checking if it's online
         if (['hi', 'ping', 'are you online', 'online?', 'are you online?', 'online'].includes(text)) {
-            await sendTelegram("👋 I'm online! I'm very happy, just tell me what to do 🥹🥹");
+            await sendTelegram("👋 I'm online! What do you want me to do? 😆");
         }
 
         // help menu
         else if (text === 'help' || text === 'menu') {
             await sendTelegram(COMMAND_MENU);
+        }
+
+        // option 0: refresh - wipe the saved Netgear session to the next run logs
+        else if (text === 'refresh') {
+            await sendTelegram("🧹 Wiping saved Netgear session. Next reset will log in fresh and ask for MFA.");
+            const result = clearNetgearSession();
+            if (result.ok) {
+                await sendTelegram(✅ Session wiped (${result.removed} items).\nThe next \`reset\` will login fresh and ask for an MFA code here.`);
+            } else {
+                await sendTelegram(`❌ Session wipe failed: ${result.error || 'Unknown error'}. Check logs for details.`);
+            }
         }
 
         // option 1: scan

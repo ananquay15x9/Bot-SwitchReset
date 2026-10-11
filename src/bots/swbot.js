@@ -153,6 +153,85 @@ async function openInsightHome(page) {
     console.log(`⚠️ Insight still blank after 2 refreshes (${page.url()}). Continuing anyway.`);
 }
 
+// -------CLASSIC UI SWITCH (with re-switch retries)-------
+// Refreshing doesn't fix that; clicking "Switch to Classic" again in the new-UI tab does.
+const CLASSIC_ORG_DASH = 'https://insight.netgear.com/classic/#/organization/dashboard';
+
+// make sure we have a live new-UI tab to click "Switch to Classic" from
+async function ensureNewUiTab(context, newUiPage) {
+    const avatar = (p) => p.locator('#profile-section-avatar-button, #profile-section-avatar-image').first();
+    if (!newUiPage || newUiPage.isClosed()) {
+        console.log("🆕 Opening a new-UI tab for the classic switch...");
+        newUiPage = await context.newPage();
+        await openInsightHome(newUiPage);
+    }
+    if (!(await avatar(newUiPage).waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false))) {
+        console.log(`↪️ New-UI tab not on a dashboard (${newUiPage.url()}), reopening Insight home...`);
+        await openInsightHome(newUiPage);
+        await avatar(newUiPage).waitFor({ state: 'visible', timeout: 20000 });
+    }
+    return newUiPage;
+}
+
+// one attempt: click Switch to Classic, land on the org dashboard, confirm the Org_support tile is there
+async function openClassicOnce(context, newUiPage) {
+    await newUiPage.bringToFront();
+    await newUiPage.keyboard.press('Escape').catch(() => {}); // close a menu left open by a previous try
+
+    const avatarBtn = newUiPage.locator('#profile-section-avatar-button, #profile-section-avatar-image').first();
+    const switchBtn = newUiPage.locator('#profile-section-menu-item-switch-to-classic');
+    await avatarBtn.click();
+    console.log("👤 Opened profile menu");
+    await switchBtn.waitFor({ state: 'visible', timeout: 10000 });
+
+    console.log("🖱️ Clicking 'Switch to Classic' and awaiting tab...");
+    const [classicPage] = await Promise.all([
+        context.waitForEvent('page', { timeout: 20000 }),
+        switchBtn.click(),
+    ]);
+
+    await classicPage.waitForURL(url => url.href.includes('/classic'), { timeout: 25000 }).catch(() => {});
+    console.log(`📍 Classic tab URL: ${classicPage.url()}`);
+    await classicPage.bringToFront();
+
+    // classic sometimes opens on an unrelated page (e.g. #/CamSdk)
+    if (!classicPage.url().includes('/organization/')) {
+        console.log("↪️ Going to the classic organization dashboard...");
+        await classicPage.goto(CLASSIC_ORG_DASH, { waitUntil: 'domcontentloaded' }).catch(() => {});
+        await classicPage.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    }
+
+    // success = the Org_support tile (or an org header) actually shows up
+    const orgTile = classicPage.locator('span.scanQRCodeDrop', { hasText: 'Org_support' }).first();
+    const ok = await orgTile.or(classicPage.locator('#headerLocName')).first()
+        .waitFor({ state: 'visible', timeout: 35000 }).then(() => true, () => false);
+    return { classicPage, ok };
+}
+
+// up to 3 tries; returns { page: classicPage, newUiPage } and keeps the new-UI tab open
+async function switchToClassicWithRetry(context, newUiPage, maxTries = 3) {
+    for (let attempt = 1; attempt <= maxTries; attempt++) {
+        newUiPage = await ensureNewUiTab(context, newUiPage);
+        let result = null;
+        try {
+            result = await openClassicOnce(context, newUiPage);
+        } catch (e) {
+            console.log(`⚠️ Classic switch attempt ${attempt} error: ${e.message.split('\n')[0]}`);
+        }
+        if (result && result.ok) {
+            console.log(`✅ Classic UI ready (attempt ${attempt}/${maxTries}).`);
+            return { page: result.classicPage, newUiPage };
+        }
+        console.log(`🔁 Classic opened without the organization list (attempt ${attempt}/${maxTries}). Closing it and switching again...`);
+        if (result && result.classicPage) {
+            if (attempt === maxTries) await reportLoginScreen(result.classicPage, 'Classic switch', 'Classic UI empty after 3 switches. Send "refresh" to wipe the saved login, then try the reset again');
+            await result.classicPage.close().catch(() => {});
+        }
+        await newUiPage.waitForTimeout(3000);
+    }
+    throw new Error('Classic UI never showed the organization list after 3 switches.');
+}
+
 async function reAuthenticate(page, label = "") {
     console.log(`🔐 [${label}] Starting re-auth sequence...`);
 
@@ -450,6 +529,7 @@ function findVenueMapping(venue) {
     });
 
     let page = await context.newPage();
+    let newUiPage = null;
 
     // close Chromium's empty start tab - one less tab in memory on the Pi
     for (const p of context.pages()) {
@@ -492,68 +572,12 @@ function findVenueMapping(venue) {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
-    // Check if  in the new UI (/organization/...)
+    // Check if in the new UI (/organization/...)
     if (!page.url().includes('/classic/')) {
-        console.log("🆕 New UI active. Executing recorded profile switch...");
-
-        // 1. Click parent avatar button (captured from log)
-        const avatarBtn = page.locator('#profile-section-avatar-button, #profile-section-avatar-image').first();
-        await avatarBtn.waitFor({ state: 'visible', timeout: 15000 });
-        await avatarBtn.click();
-        console.log("👤 Clicked #profile-section-avatar-button");
-
-        // 2. Click "Switch to Classic" and capture the new tab (starts at about:blank)
-        const switchToClassicBtn = page.locator('#profile-section-menu-item-switch-to-classic');
-        await switchToClassicBtn.waitFor({ state: 'visible', timeout: 10000 });
-
-        console.log("🖱️ Clicking #profile-section-menu-item-switch-to-classic and awaiting tab...");
-        const [classicPage] = await Promise.all([
-            context.waitForEvent('page', { timeout: 15000 }),
-            switchToClassicBtn.click()
-        ]);
-
-        // Keep the new-UI tab OPEN until classic is up: the new tab may get its login hand-off from it,
-        // and closing it right away (fine on a fast PC) leaves the classic tab stuck on the slower Pi.
-        const newUiPage = page;
-        page = classicPage;
-
-        console.log("⏳ Waiting for classic dashboard tab to load...");
-        let onClassic = await page.waitForURL(url => url.href.includes('/classic'), { timeout: 25000 }).then(() => true, () => false);
-        console.log(`📍 Classic tab URL: ${page.url()}`);
-
-        if (!onClassic) {
-            const other = context.pages().find(p => p.url().includes('/classic'));
-            if (other) {
-                page = other;
-                onClassic = true;
-            } else {
-                console.log("↪️ Classic tab didn't load, opening classic dashboard directly...");
-                await page.goto('https://insight.netgear.com/classic/#/organization/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
-            }
-        }
-        await page.bringToFront();
-
-        // On the Pi, classic sometimes opens on an unrelated page (e.g. #/CamSdk) that never draws.
-        if (onClassic && !page.url().includes('/organization/')) {
-            console.log(`↪️ Classic opened on ${page.url()}, going to the organization dashboard...`);
-            await page.goto('https://insight.netgear.com/classic/#/organization/dashboard', { waitUntil: 'domcontentloaded' }).catch(() => {});
-            await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {}); // a #-only change doesn't reload a broken page
-        }
-
-        // Classic can also come up blank on first load (same as the home page): refresh if nothing shows
-        const classicReady = page.locator('span.scanQRCodeDrop').or(page.locator('#headerLocName'));
-        let ready = false;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            if (await classicReady.first().waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false)) { ready = true; break; }
-            if (attempt < 3) {
-                console.log(`⬜ Classic page blank at ${page.url()}, refreshing (${attempt}/2)...`);
-                await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-            }
-        }
-        if (!ready) await reportLoginScreen(page, 'Classic switch', 'Classic UI did not load');
-
-        // now it's safe to close the new-UI tab
-        if (newUiPage !== page) await newUiPage.close().catch(() => {});
+        console.log("🆕 New UI active. Switching to Classic...");
+        const switched = await switchToClassicWithRetry(context, page);
+        newUiPage = switched.newUiPage;
+        page = switched.page;
         await page.waitForTimeout(2000);
     }
 
@@ -600,17 +624,17 @@ function findVenueMapping(venue) {
 
     async function killModal() {
         try {
-       
+
             await page.waitForTimeout(1500);
     
-       
+
             const modalSelectors = '#myModal.internetError, .modal.internetError.in, .modal.insightNotReachable.in, #myModal.insightNotReachable, .modal.in:has-text("Error")';
             const modal = page.locator(modalSelectors);
             
             if (await modal.isVisible()) {
                 console.log("🚨 Netgear blocking network overlay detected. Executing eviction sequence...");
                 
-               
+
                 const btn = modal.locator('button:has-text("OK"), button:has-text("Close"), button.close, button').first();
                 if (await btn.isVisible()) {
                     await btn.click({ force: true });
@@ -672,17 +696,17 @@ function findVenueMapping(venue) {
 
             if (!(await rowsShown(20000))) {
                 // the direct URL sometimes opens an empty list; re-enter the way that works for the first venue
-                console.log("↪️ Venue list empty, reloading the organization dashboard (double-click Org_support)...");
-                await page.goto(ORG_DASH_URL, { waitUntil: 'domcontentloaded' });
-                // changing only the #/... part never reloads the page, so a broken page stays broken - force a real reload
-                await page.reload({ waitUntil: 'domcontentloaded' });
+                console.log("↪️ Venue list empty, re-opening Classic from the new-UI tab...");
+                const oldClassic = page;
+                const switched = await switchToClassicWithRetry(context, newUiPage);
+                newUiPage = switched.newUiPage;
+                page = switched.page;
+                if (oldClassic !== page && oldClassic !== newUiPage) await oldClassic.close().catch(() => {});
+
                 await loaderGone();
                 await killModal();
                 const orgTile = page.locator('span.scanQRCodeDrop', { hasText: 'Org_support' }).first();
-                if (!(await orgTile.waitFor({ state: 'visible', timeout: 30000 }).then(() => true, () => false))) {
-                    await reportLoginScreen(page, netgearVenueName, 'Org_support tile missing');
-                    throw new Error(`Org_support tile not found after reload at ${page.url()}`);
-                }
+                await orgTile.waitFor({ state: 'visible', timeout: 15000 });
                 await orgTile.dblclick();
                 await page.waitForURL(url => url.href.includes('/organization/details/Org_support'), { timeout: 20000 }).catch(() => {});
                 await loaderGone();
