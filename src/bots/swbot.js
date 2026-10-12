@@ -196,10 +196,20 @@ async function openClassicOnce(context, newUiPage) {
 
     // classic sometimes opens on an unrelated page (e.g. #/CamSdk)
     if (!classicPage.url().includes('/organization/')) {
-        console.log("↪️ Going to the classic organization dashboard...");
-        await classicPage.goto(CLASSIC_ORG_DASH, { waitUntil: 'domcontentloaded' }).catch(() => {});
-        await classicPage.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+        console.log("⏳ Letting classic finish signing in (startup page)...");
+        const arrived = await classicPage
+            .waitForURL(url => url.href.includes('/classic/#/organization/'), { timeout: 90000 })
+            .then(() => true, () => false);
+        if (arrived) {
+            console.log(`📍 Classic moved on by itself: ${classicPage.url()}`);
+        } else {
+            console.log(`↪️ Still on ${classicPage.url()} after 90s, opening the organization dashboard...`);
+            await classicPage.goto(CLASSIC_ORG_DASH, { waitUntil: 'domcontentloaded' }).catch(() => {});
+        }
     }
+
+    // let the sign in request finish
+    await classicPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
     // success = the Org_support tile (or an org header) actually shows up
     const orgTile = classicPage.locator('span.scanQRCodeDrop', { hasText: 'Org_support' }).first();
